@@ -33,5 +33,13 @@ class Program
         bool andOp = (a > 0 && b > 0);
         bool orOp = (a > 0 || b < 0);
         bool notOp = !(a == b);
+
+int x = 42;
+double y = 3.14;
+float z = 2.71E-3;
+int x = -42;
+double y = -3.14;
+float z = -2.71E-3;
+
     }
 }

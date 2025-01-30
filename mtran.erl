@@ -20,6 +20,18 @@ operators() ->
 delimiters() ->
     [";", ",", ".", "(", ")", "{", "}", "[", "]"].
 
+is_constant(Token) -> 
+    case re:run(Token, "^[+-]?[0-9]+$", [{capture, none}]) of
+        match -> {true, "Integer"};
+        nomatch -> case re:run(Token, "^[+-]?[0-9]+(\\.[0-9]+)?$", [{capture, none}]) of  % числа с точкой
+            match -> {true, "Float"};
+            nomatch -> case re:run(Token, "^[+-]?[0-9]+(\\.[0-9]+)?([eE][-+]?[0-9]+)$", [{capture, none}]) of  % научная запись
+                match -> {true, "Scientific"};
+                nomatch -> {false, ""}
+            end
+        end
+    end.
+
 % Инициализация ETS-таблиц
 init_tables() -> 
     lists:foreach(fun(Table) ->
@@ -27,8 +39,9 @@ init_tables() ->
             undefined -> ets:new(Table, [named_table, set, public]);
             _ -> ets:delete_all_objects(Table)
         end
-    end, [names_table, operators_table, delimiters_table]),
+    end, [names_table, operators_table, delimiters_table, constants_table]), % добавлена новая таблица
     io:format("Tables initialized and cleared.~n").
+
 
 % Обработка файла
 process_file(File) -> 
@@ -44,7 +57,7 @@ process_file(File) ->
 
 % Обработка токенов
 process_tokens([]) -> ok;
-process_tokens([Token | Rest]) ->
+process_tokens([Token | Rest]) -> 
     case lists:member(Token, cs_keywords()) of
         true -> insert_token(names_table, Token, "Keyword");
         false -> 
@@ -53,11 +66,17 @@ process_tokens([Token | Rest]) ->
                 false -> 
                     case lists:member(Token, delimiters()) of
                         true -> insert_token(delimiters_table, Token, "Delimiter");
-                        false -> ok
+                        false -> 
+                            % Проверяем, является ли токен константой (числом)
+                            case is_constant(Token) of
+                                {true, Type} -> insert_token(constants_table, Token, Type); % Вставляем в таблицу чисел
+                                {false, _} -> ok % Если не константа, пропускаем
+                            end
                     end
             end
     end,
     process_tokens(Rest).
+
 
 % Вставка токена в таблицу
 insert_token(Table, Token, Type) -> 
@@ -76,7 +95,7 @@ print_tables() ->
         lists:foreach(fun({Token, Index, Type}) -> 
                             io:format("Index: ~p, Token: ~s, Type: ~s~n", [Index, Token, Type])
                       end, ets:tab2list(Table))
-    end, [{names_table, "Names Table"}, {operators_table, "Operators Table"}, {delimiters_table, "Delimiters Table"}]).
+    end, [{names_table, "Names Table"}, {operators_table, "Operators Table"}, {delimiters_table, "Delimiters Table"}, {constants_table, "Constants Table"}]).  % добавлена таблица чисел
 
 % Чтение файла
 read_file() -> 
