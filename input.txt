@@ -1,0 +1,17 @@
+# third program
+
+using System;
+
+class Program
+{
+    static void PrintValue(string value)
+    {
+        Console.WriteLine($"Value: {value}");
+    }
+
+    static void Main()
+    {
+        string greeting = "Hello world!";
+        PrintValue(greeting);
+    }
+}
