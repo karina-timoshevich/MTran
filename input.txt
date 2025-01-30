@@ -13,5 +13,25 @@ class Program
     {
         string greeting = "Hello world!";
         PrintValue(greeting);
+ int a = 10;
+        int b = 5;
+        int sum = a + b;
+        int diff = a - b;
+        int prod = a * b;
+        int div = a / b;
+        int mod = a % b;
+
+        // Операторы сравнения
+        bool isEqual = (a == b);
+        bool isNotEqual = (a != b);
+        bool isGreater = (a > b);
+        bool isLess = (a < b);
+        bool isGreaterOrEqual = (a >= b);
+        bool isLessOrEqual = (a <= b);
+
+        // Логические операторы
+        bool andOp = (a > 0 && b > 0);
+        bool orOp = (a > 0 || b < 0);
+        bool notOp = !(a == b);
     }
 }
