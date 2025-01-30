@@ -16,16 +16,18 @@ cs_keywords() ->
 operators() -> 
     ["+", "-", "*", "/", "%", "&&", "||", "!", "==", "!=", ">", "<", ">=", "<="].
 
-% Инициализация таблиц имен и операторов
+% Список разделителей
+delimiters() ->
+    [";", ",", ".", "(", ")", "{", "}", "[", "]"].
+
+% Инициализация ETS-таблиц
 init_tables() -> 
-    case ets:info(names_table) of
-        undefined -> ets:new(names_table, [named_table, set, public]);
-        _ -> ets:delete_all_objects(names_table)
-    end,
-    case ets:info(operators_table) of
-        undefined -> ets:new(operators_table, [named_table, set, public]);
-        _ -> ets:delete_all_objects(operators_table)
-    end,
+    lists:foreach(fun(Table) ->
+        case ets:info(Table) of
+            undefined -> ets:new(Table, [named_table, set, public]);
+            _ -> ets:delete_all_objects(Table)
+        end
+    end, [names_table, operators_table, delimiters_table]),
     io:format("Tables initialized and cleared.~n").
 
 % Обработка файла
@@ -33,7 +35,7 @@ process_file(File) ->
     case file:read_file(File) of
         {ok, Content} -> 
             String = erlang:binary_to_list(Content),
-            Tokens = string:tokens(String, " \t\n\r.,;(){}"),
+            Tokens = re:split(String, "([ \t\n\r;,(){}\\[\\]])", [{return, list}, trim]),
             process_tokens(Tokens),
             print_tables();
         {error, Reason} -> 
@@ -42,13 +44,17 @@ process_file(File) ->
 
 % Обработка токенов
 process_tokens([]) -> ok;
-process_tokens([Token | Rest]) -> 
+process_tokens([Token | Rest]) ->
     case lists:member(Token, cs_keywords()) of
         true -> insert_token(names_table, Token, "Keyword");
         false -> 
             case lists:member(Token, operators()) of
                 true -> insert_token(operators_table, Token, "Operator");
-                false -> ok
+                false -> 
+                    case lists:member(Token, delimiters()) of
+                        true -> insert_token(delimiters_table, Token, "Delimiter");
+                        false -> ok
+                    end
             end
     end,
     process_tokens(Rest).
@@ -65,14 +71,12 @@ insert_token(Table, Token, Type) ->
 
 % Вывод содержимого таблиц
 print_tables() -> 
-    io:format("===== Names Table =====~n"),
-    lists:foreach(fun({Token, Index, Type}) -> 
-                        io:format("Index: ~p, Token: ~s, Type: ~s~n", [Index, Token, Type])
-                  end, ets:tab2list(names_table)),
-    io:format("===== Operators Table =====~n"),
-    lists:foreach(fun({Token, Index, Type}) -> 
-                        io:format("Index: ~p, Token: ~s, Type: ~s~n", [Index, Token, Type])
-                  end, ets:tab2list(operators_table)).
+    lists:foreach(fun({Table, Title}) ->
+        io:format("===== ~s =====~n", [Title]),
+        lists:foreach(fun({Token, Index, Type}) -> 
+                            io:format("Index: ~p, Token: ~s, Type: ~s~n", [Index, Token, Type])
+                      end, ets:tab2list(Table))
+    end, [{names_table, "Names Table"}, {operators_table, "Operators Table"}, {delimiters_table, "Delimiters Table"}]).
 
 % Чтение файла
 read_file() -> 
