@@ -12,7 +12,8 @@ init_table() ->
             ets:new(keyword_table, [named_table, set, public]),
             io:format("Keyword table initialized.~n");
         _ ->
-            io:format("Keyword table already exists.~n")
+            ets:delete_all_objects(keyword_table), % Очистка перед повторным заполнением
+            io:format("Keyword table cleared and ready for use.~n")
     end.
 
 % Process file function
@@ -21,28 +22,25 @@ process_file(File) ->
         {ok, Content} ->
             String = erlang:binary_to_list(Content),
             Tokens = string:tokens(String, " \t\n\r.,;(){}"),
-            process_tokens(Tokens, 1);
+            process_tokens(Tokens);
         {error, Reason} ->
             io:format("Error reading file ~s: ~s~n", [File, atom_to_list(Reason)])
     end.
 
 % Token processing function
-process_tokens([], _) -> ok;
-process_tokens([Token | Rest], Index) ->
+process_tokens([]) -> ok;
+process_tokens([Token | Rest]) ->
     case lists:member(Token, cs_keywords()) of
         true -> % If the token is a C# keyword
             case ets:lookup(keyword_table, Token) of
                 [] -> % If token does not exist, add it
-                    ets:insert(keyword_table, {Index, Token, "Keyword"}),
-                    io:format("Added to table: {~p, ~s, \"Keyword\"}~n", [Index, Token]),
-                    process_tokens(Rest, Index + 1);
-                [{ExistingIndex, Token, _}] -> % If token already exists, reuse index
-                    io:format("Reused: {~p, ~s}~n", [ExistingIndex, Token]),
-                    process_tokens(Rest, Index)
+                    ets:insert(keyword_table, {Token, "Keyword"}),
+                    io:format("Added to table: {~s, \"Keyword\"}~n", [Token]);
+                _ -> ok % If token already exists, do nothing
             end;
-        false -> % Ignore non-keywords
-            process_tokens(Rest, Index)
-    end.
+        false -> ok
+    end,
+    process_tokens(Rest).
 
 % File reading function
 read_file() ->
