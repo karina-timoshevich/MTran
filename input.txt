@@ -1,6 +1,5 @@
-# third program
-
 using System;
+using System.Collections.Generic;
 
 class Program
 {
@@ -9,11 +8,47 @@ class Program
         Console.WriteLine($"Value: {value}");
     }
 
+    static int Add(int a, int b)
+    {
+        return a + b;
+    }
+
+    static double CalculateDistance(double speed, double time)
+    {
+        return speed * time;
+    }
+
     static void Main()
     {
         string greeting = "Hello world!";
         PrintValue(greeting);
- int a = 10;
+
+        int age = 25;
+        long population = 7800000000L;
+        short smallNumber = 32767;
+        byte value = 255;
+        Console.WriteLine($"Age: {age}, Population: {population}, SmallNumber: {smallNumber}, Value: {value}");
+
+        float height = 5.9f;
+        double distance = 12345.6789;
+        decimal salary = 2500.50m;
+        Console.WriteLine($"Height: {height}, Distance: {distance}, Salary: {salary}");
+
+        bool isActive = true;
+        Console.WriteLine($"Is Active: {isActive}");
+
+        char grade = 'A';
+        Console.WriteLine($"Grade: {grade}");
+
+        string name = "John Doe";
+        Console.WriteLine($"Name: {name}");
+
+        object objValue = 42;
+        object objText = "Hello, World!";
+        object objNumber = 3.14;
+        Console.WriteLine($"Object Value: {objValue}, Object Text: {objText}, Object Number: {objNumber}");
+
+        int a = 10;
         int b = 5;
         int sum = a + b;
         int diff = a - b;
@@ -21,7 +56,8 @@ class Program
         int div = a / b;
         int mod = a % b;
 
-        // Операторы сравнения
+        Console.WriteLine($"Sum: {sum}, Diff: {diff}, Product: {prod}, Div: {div}, Mod: {mod}");
+
         bool isEqual = (a == b);
         bool isNotEqual = (a != b);
         bool isGreater = (a > b);
@@ -29,17 +65,99 @@ class Program
         bool isGreaterOrEqual = (a >= b);
         bool isLessOrEqual = (a <= b);
 
+        Console.WriteLine($"Equal: {isEqual}, Not Equal: {isNotEqual}, Greater: {isGreater}, Less: {isLess}, GreaterOrEqual: {isGreaterOrEqual}, LessOrEqual: {isLessOrEqual}");
+
         // Логические операторы
         bool andOp = (a > 0 && b > 0);
         bool orOp = (a > 0 || b < 0);
         bool notOp = !(a == b);
 
-int x = 42;
-double y = 3.14;
-float z = 2.71E-3;
-int x = -42;
-double y = -3.14;
-float z = -2.71E-3;
+        Console.WriteLine($"AND: {andOp}, OR: {orOp}, NOT: {notOp}");
 
+        // Циклы
+        Console.WriteLine("For Loop:");
+        for (int i = 0; i < 10; i++)
+        {
+            Console.WriteLine(i);
+        }
+
+        Console.WriteLine("Foreach Loop:");
+        List<int> numbers = new List<int> { 1, 2, 3, 4, 5 };
+        foreach (var item in numbers)
+        {
+            Console.WriteLine(item);
+        }
+
+        Console.WriteLine("Do While Loop:");
+        int counter = 0;
+        do
+        {
+            Console.WriteLine("Hello");
+            counter++;
+        } while (counter < 3);
+
+        Console.WriteLine("While Loop:");
+        int condition = 10;
+        while (condition > 0)
+        {
+            Console.WriteLine($"Condition: {condition}");
+            condition--;
+        }
+
+        if (a > b)
+        {
+            Console.WriteLine("a is greater than b");
+        }
+        else
+        {
+            Console.WriteLine("a is not greater than b");
+        }
+
+        switch (a)
+        {
+            case 10:
+                Console.WriteLine("a is 10");
+                break;
+            default:
+                Console.WriteLine("a is not 10");
+                break;
+        }
+
+        int[] numbersArray = { 1, 2, 3, 4 };
+        Console.WriteLine("Array:");
+        foreach (var num in numbersArray)
+        {
+            Console.WriteLine(num);
+        }
+
+        List<string> names = new List<string> { "Alice", "Bob" };
+        Console.WriteLine("List:");
+        foreach (var nameItem in names)
+        {
+            Console.WriteLine(nameItem);
+        }
+
+        Dictionary<int, string> map = new Dictionary<int, string>
+        {
+            { 1, "One" },
+            { 2, "Two" }
+        };
+        Console.WriteLine("Dictionary:");
+        foreach (var pair in map)
+        {
+            Console.WriteLine($"Key: {pair.Key}, Value: {pair.Value}");
+        }
+        int x = 42;
+        double y = 3.14;
+        float z = 2.71E-3;
+        int x = -42;
+        double y = -3.14;
+        float z = -2.71E-3;
+       
+        int sumResult = Add(a, b);
+        Console.WriteLine($"Sum result from function: {sumResult}");
+
+        double calculatedDistance = CalculateDistance(60.0, 2.5);
+        Console.WriteLine($"Calculated Distance: {calculatedDistance}");
     }
 }
