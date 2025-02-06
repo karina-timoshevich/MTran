@@ -6,46 +6,34 @@ check_file(FilePath) ->
     case file:read_file(FilePath) of
         {ok, Content} ->
             Lines = string:split(binary_to_list(Content), "\n", all),
-            check_lines(Lines, 1, false, 0);
+            check_lines(Lines, 1, false, false);
         {error, Reason} ->
-            io:format("File read error ~s: ~s~n", [lists:flatten(FilePath), atom_to_list(Reason)])
+            io:format("File read error ~ts: ~s~n", [FilePath, atom_to_list(Reason)])
     end.
 
-check_lines([], _, false, _) ->
-    io:format("File check complete. No errors found.~n"),
+check_lines([], _, _, _) ->
+    io:format("File check complete.~n"),
     ok;
-check_lines([], OpenLine, true, _) ->
-    io:format("Lexical error: missing closing quote, starting from line ~p~n", [OpenLine]),
-    ok;
-check_lines([Line | Rest], LineNum, InString, OpenLine) ->
-    {NewInString, OpenDetected, CloseDetected} = analyze_line(Line, InString),
-
-    case {InString, OpenDetected, CloseDetected} of
-        {false, true, false} ->  % нашли открыую
-            io:format("  -> Found string opening at line ~p~n", [LineNum]),
-            check_lines(Rest, LineNum + 1, true, LineNum);
-        {true, false, true} ->  % нашли закрытую
-            io:format("  -> Found string closing at line ~p~n", [LineNum]),
-            check_lines(Rest, LineNum + 1, false, 0);
-        {false, true, true} ->  % все в одной строке и ок
-            io:format("  -> Found complete string in one line ~p~n", [LineNum]),
-            check_lines(Rest, LineNum + 1, false, 0);
-        {true, true, false} ->  % опа, не закрылась кавычка
-            io:format("Lexical error: missing quote, starting from line ~p~n", [OpenLine]),
-            ok; 
-        {true, false, false} -> 
-            io:format("Lexical error: missing quote, starting from line ~p~n", [OpenLine]),
-            ok;
-        _ ->  
-            check_lines(Rest, LineNum + 1, NewInString, OpenLine)
+check_lines([Line | Rest], LineNum, InString, HasError) ->
+    {NewInside, Error} = analyze_line(Line, InString),
+    if Error =:= true ->
+           io:format("Lexical error: missing closing quote before semicolon at line ~p~n", [LineNum]),
+           check_lines(Rest, LineNum + 1, false, true);
+       NewInside =:= true ->
+           io:format("Lexical error: string literal not closed at line ~p~n", [LineNum]),
+           check_lines(Rest, LineNum + 1, false, true);
+       true ->
+           check_lines(Rest, LineNum + 1, false, HasError)
     end.
 
 analyze_line(Line, InString) ->
-    lists:foldl(fun(C, {Inside, Open, Close}) ->
-                        case C of
-                            $" -> 
-                                {not Inside, Open orelse not Inside, Close orelse Inside};
-                            _ -> 
-                                {Inside, Open, Close}
-                        end
-                end, {InString, false, false}, Line).
+    lists:foldl(fun(C, {Inside, Error}) ->
+                      case C of
+                          $" ->
+                              {not Inside, Error};  
+                          $; when Inside ->
+                              {Inside, true};       
+                          _ ->
+                              {Inside, Error}
+                      end
+              end, {InString, false}, Line).

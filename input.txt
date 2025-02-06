@@ -20,8 +20,9 @@ class Program
 
     static void Main()
     {
-        string greeting = "Hello world!";
+      
         PrintValue(greeting);
+
 
         int age = 25;
         long population = 7800000000L;
