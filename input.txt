@@ -74,7 +74,8 @@ class Program
         bool notOp = !(a == b);
 
         Console.WriteLine($"AND: {andOp}, OR: {orOp}, NOT: {notOp});
-
+        int 45rfg;
+        int !rfg;
         // Циклы
         Console.WriteLine("For Loop:");
         for (int i = 0; i < 10; +++i)
@@ -83,7 +84,7 @@ class Program
         }
 
         Console.WriteLine("For Loop:");
-        for (int i = 0; i < 10; i---)
+        for (int i = 0; i < 10; i--)
         {
             Console.WriteLine(i);
         }

@@ -16,7 +16,6 @@ check_lines([], _, _, _) ->
     ok;
 check_lines([Line | Rest], LineNum, InString, HasError) ->
     {NewInside, Error} = analyze_line(Line, InString),
-
     if Error =:= true ->
            io:format("  -> Lexical error: missing closing quote before semicolon at line ~p~n", [LineNum]),
            check_lines(Rest, LineNum + 1, false, true);
@@ -26,6 +25,7 @@ check_lines([Line | Rest], LineNum, InString, HasError) ->
        true ->
            check_for_invalid_patterns(Line, LineNum),
            check_for_increment_decrement_patterns(Line, LineNum),
+           check_for_invalid_identifier(Line, LineNum),
            check_lines(Rest, LineNum + 1, false, HasError)
     end.
 
@@ -45,7 +45,7 @@ check_for_invalid_patterns(Line, LineNum) ->
     case re:run(Line, "([+]{3,}|[\\-]{3,}|[+\\-]{3}[=]{1,})") of
         {match, _} ->
             io:format("  -> Lexical error: invalid pattern at line ~p: ~s~n", [LineNum, Line]);
-        nomatch -> 
+        nomatch ->
             ok
     end.
 
@@ -53,6 +53,42 @@ check_for_increment_decrement_patterns(Line, LineNum) ->
     case re:run(Line, "\\w+\\+{3,}|\\w+\\-{3,}|\\w+\\+\\-{2,}") of
         {match, _} ->
             io:format("  -> Lexical error: invalid increment/decrement pattern at line ~p: ~s~n", [LineNum, Line]);
-        nomatch -> 
+        nomatch ->
             ok
     end.
+
+check_for_invalid_identifier(Line, LineNum) ->
+    SemicolonResult = re:run(Line, ";"),
+    SemicolonPresent = case SemicolonResult of
+                           nomatch -> false;
+                           _ -> true
+                       end,
+    TypeKeywordResult = re:run(Line, "\\b(?:int|float|string|char|double|long|short|boolean|class)\\b"),
+    TypeKeywordPresent = case TypeKeywordResult of
+                             nomatch -> false;
+                             _ -> true
+                         end,
+    if 
+         SemicolonPresent andalso TypeKeywordPresent ->
+            case re:run(Line, "\\b(?:int|float|string|char|double|long|short|boolean|class)\\s+(\\S+)", [{capture, [1], list}]) of
+                {match, [Identifier]} ->
+                    case re:run(Identifier, "^[a-zA-Z_][a-zA-Z0-9_]*$", [{capture, none}]) of
+                        nomatch ->
+                            io:format("  -> Lexical error: invalid identifier after type keyword at line ~p: ~s~n", [LineNum, Line]),
+                            ok;
+                        {match, _} ->
+                            ok;
+                        _Other ->
+                            ok
+                    end;
+                {match, _Other} ->
+                    ok;
+                nomatch ->
+                    ok;
+                _Other ->
+                    ok
+            end;
+         true ->
+            ok
+    end.
+
