@@ -20,7 +20,7 @@ class Program
 
     static void Main()
     {
-      
+        string greeting = "Hello world!;
         PrintValue(greeting);
 
 
@@ -73,11 +73,17 @@ class Program
         bool orOp = (a > 0 || b < 0);
         bool notOp = !(a == b);
 
-        Console.WriteLine($"AND: {andOp}, OR: {orOp}, NOT: {notOp}");
+        Console.WriteLine($"AND: {andOp}, OR: {orOp}, NOT: {notOp});
 
         // Циклы
         Console.WriteLine("For Loop:");
-        for (int i = 0; i < 10; i++)
+        for (int i = 0; i < 10; +++i)
+        {
+            Console.WriteLine(i);
+        }
+
+        Console.WriteLine("For Loop:");
+        for (int i = 0; i < 10; i---)
         {
             Console.WriteLine(i);
         }
