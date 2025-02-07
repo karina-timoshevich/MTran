@@ -26,6 +26,7 @@ check_lines([Line | Rest], LineNum, InString, HasError) ->
            check_for_invalid_patterns(Line, LineNum),
            check_for_increment_decrement_patterns(Line, LineNum),
            check_for_invalid_identifier(Line, LineNum),
+           check_for_invalid_logical_operators(Line, LineNum),
            check_lines(Rest, LineNum + 1, false, HasError)
     end.
 
@@ -92,3 +93,21 @@ check_for_invalid_identifier(Line, LineNum) ->
             ok
     end.
 
+check_for_invalid_logical_operators(Line, LineNum) ->
+    Tokens = re:split(Line, "\\s+", [{return, list}, trim]),
+    lists:foreach(fun(Token) ->
+                          case Token of
+                              [C1, C2 | _Rest] ->
+                                  case C1 of
+                                      $& when C2 =/= $& ->
+                                          io:format("  -> Lexical error: invalid logical operator at line ~p: ~s~n", [LineNum, Line]);
+                                      $| when C2 =/= $| ->
+                                          io:format("  -> Lexical error: invalid logical operator at line ~p: ~s~n", [LineNum, Line]);
+                                      _ ->
+                                          ok
+                                  end;
+                              _ ->
+                                  ok
+                          end
+                  end, Tokens),
+    ok.

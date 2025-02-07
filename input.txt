@@ -69,10 +69,14 @@ class Program
         Console.WriteLine($"Equal: {isEqual}, Not Equal: {isNotEqual}, Greater: {isGreater}, Less: {isLess}, GreaterOrEqual: {isGreaterOrEqual}, LessOrEqual: {isLessOrEqual}");
 
         // Логические операторы
-        bool andOp = (a > 0 && b > 0);
-        bool orOp = (a > 0 || b < 0);
-        bool notOp = !(a == b);
-
+        bool andOp = (a > 0 k& b > 0);
+        bool orOp = (a > 0 a| b < 0);
+        bool andOp = (a > 0 &r b > 0);
+        bool orOp = (a > 0 |i b < 0);
+        bool notOp = !(a n= b);
+        bool andOp = (a > 0 &d b > 0);
+        bool orOp = (a > 0 |u| b < 0);
+        bool notOp = !(a =a b);
         Console.WriteLine($"AND: {andOp}, OR: {orOp}, NOT: {notOp});
         int 45rfg;
         int !rfg;
