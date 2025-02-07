@@ -83,13 +83,26 @@ insert_token(Table, Token, Type) ->
         _ -> ok
     end.
 
-print_tables() -> 
-    lists:foreach(fun({Table, Title}) ->
-        io:format("===== ~s =====~n", [Title]),
-        lists:foreach(fun({Token, Index, Type}) -> 
-                            io:format("Index: ~p, Token: ~s, Type: ~s~n", [Index, Token, Type])
-                      end, ets:tab2list(Table))
-    end, [{names_table, "Names Table"}, {operators_table, "Operators Table"}, {delimiters_table, "Delimiters Table"}, {constants_table, "Constants Table"}]). 
+print_tables() ->
+    print_table(names_table, "Keyword Table"),
+    print_table(operators_table, "Operators Table"),
+    print_table(delimiters_table, "Delimiters Table"),
+    print_table(constants_table, "Constants Table").
+
+print_table(Table, Title) ->
+    io:format("================= ~s =================~n", [Title]),
+    TableList = ets:tab2list(Table),
+    Sorted = lists:sort(fun({_, Index1, _}, {_, Index2, _}) -> Index1 =< Index2 end, TableList),
+    io:format("| ~4s | ~-25s | ~-12s |~n", ["Idx", "Token", "Type"]),
+    io:format("|~s|~s|~s|~n",
+              [lists:duplicate(6, "-"),
+               lists:duplicate(27, "-"),
+               lists:duplicate(14, "-")]),
+    lists:foreach(fun({Token, Index, Type}) ->
+                      io:format("| ~4p | ~-25s | ~-12s |~n", [Index, Token, Type])
+                  end, Sorted),
+    io:format("~n", []).
+
 
 read_file() -> 
     File = "D:/6_SEM/МТран/input.txt", 
