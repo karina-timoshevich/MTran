@@ -93,7 +93,7 @@ print_table(Table, Title) ->
     io:format("================= ~s =================~n", [Title]),
     TableList = ets:tab2list(Table),
     Sorted = lists:sort(fun({_, Index1, _}, {_, Index2, _}) -> Index1 =< Index2 end, TableList),
-    io:format("| ~4s | ~-25s | ~-12s |~n", ["Idx", "Token", "Type"]),
+    io:format("| ~4s | ~-25s | ~-12s |~n", ["Idx", "Element", "Type"]),
     io:format("|~s|~s|~s|~n",
               [lists:duplicate(6, "-"),
                lists:duplicate(27, "-"),
