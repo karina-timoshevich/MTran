@@ -1,5 +1,5 @@
 -module(parser).
--export([parse/1, print_tree/1]).
+-export([parse/1, print_tree/1, parse_file/1]).
 
 node(Type, Value, Children) -> {Type, Value, Children}.
 
@@ -12,7 +12,6 @@ parse_assignment([Id, "=" | Rest]) when is_list(Id) ->
     {node(assign, "=", [node(id, Id, []), Expr]), Rest1};
 parse_assignment(Tokens) ->
     parse_expr(Tokens).
-
 
 parse_expr(Tokens) ->
     {Term, Rest} = parse_term(Tokens),
@@ -38,7 +37,6 @@ parse_term_tail(Left, ["/" | Rest]) ->
     parse_term_tail(node(op, "/", [Left, Right]), Rest1);
 parse_term_tail(Node, Rest) -> {Node, Rest}.
 
-
 parse_factor(["(" | Rest]) ->
     {Expr, [")" | Rest1]} = parse_expr(Rest),
     {Expr, Rest1};
@@ -56,10 +54,17 @@ is_num(Token) ->
 
 print_tree(Tree) ->
     print_tree(Tree, 0),
-    ok. 
+    ok.
 
 print_tree({Type, Value, Children}, Indent) ->
     io:format("~s~s: ~s~n", [spaces(Indent), Type, Value]),
     lists:foreach(fun(Child) -> print_tree(Child, Indent + 4) end, Children).
 
 spaces(N) -> lists:duplicate(N, $ ).
+
+parse_file(Filename) ->
+    {ok, Binary} = file:read_file(Filename),  
+    Content = binary_to_list(Binary),         
+    Tokens = string:tokens(Content, " \n"),   
+    Tree = parse(Tokens),                     
+    print_tree(Tree).                         
