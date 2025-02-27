@@ -1,1 +1,7 @@
+int intVar = 42;
+double doubleVar = 3.14;
+bool boolVar = true;
+char charVar = 'A';
+string stringVar = "Hello world";
+var varVar = 100;
 COST = ( PRICE + TAX ) * 0.58
