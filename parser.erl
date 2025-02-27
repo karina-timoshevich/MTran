@@ -65,10 +65,17 @@ parse_factor([Token | Rest]) ->
                 false ->
                     case is_char(Token) of
                         true -> {node(char, Token, []), Rest};
-                        false -> {node(id, Token, []), Rest}
+                        false ->
+                            case is_bool(Token) of
+                                true -> {node(bool, Token, []), Rest};
+                                false -> {node(id, Token, []), Rest}
+                            end
                     end
             end
     end.
+
+is_bool(Token) ->
+    lists:member(Token, ["true", "false"]).
 
 is_type(Token) ->
     lists:member(Token, ["int", "double", "bool", "char", "string", "var"]).
@@ -114,7 +121,6 @@ tokenize(Content) ->
     Tokens = tokenize(Content, [], false, []),  
     [T || T <- Tokens, T =/= ""].    
 
-
 tokenize([], Acc, false, []) -> 
     lists:reverse(Acc);
 tokenize([], Acc, false, Current) -> 
@@ -134,14 +140,18 @@ tokenize([Char | Rest], Acc, true, StringAcc) ->
 
 tokenize([$; | Rest], Acc, false, []) -> 
     tokenize(Rest, Acc, false, []); 
+tokenize([$; | Rest], Acc, false, Current) -> 
+    tokenize(Rest, [lists:reverse(Current) | Acc], false, []);
 
 tokenize([$\r | Rest], Acc, false, []) ->
     tokenize(Rest, Acc, false, []);
 tokenize([$\r | Rest], Acc, false, Current) ->
     tokenize(Rest, [lists:reverse(Current) | Acc], false, []);
-
-
-tokenize([Char | Rest], Acc, false, Current) when Char =:= 32; Char =:= 9; Char =:= 10 -> 
+tokenize([$\n | Rest], Acc, false, []) ->
+    tokenize(Rest, Acc, false, []);
+tokenize([$\n | Rest], Acc, false, Current) ->
+    tokenize(Rest, [lists:reverse(Current) | Acc], false, []);
+tokenize([Char | Rest], Acc, false, Current) when Char =:= 32; Char =:= 9 -> 
     case Current of
         [] -> tokenize(Rest, Acc, false, []);
         _  -> tokenize(Rest, [lists:reverse(Current) | Acc], false, [])
@@ -149,4 +159,3 @@ tokenize([Char | Rest], Acc, false, Current) when Char =:= 32; Char =:= 9; Char 
 
 tokenize([Char | Rest], Acc, false, Current) -> 
     tokenize(Rest, Acc, false, [Char | Current]).
-
