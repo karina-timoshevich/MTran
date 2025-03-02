@@ -33,6 +33,8 @@ parse_statement([Type, Id, "=" | Rest]) ->
     end;
 parse_statement(["for" | Rest]) ->
     parse_for(["for" | Rest]);
+parse_statement(["while" | Rest]) ->
+    parse_while(["while" | Rest]);
 
 parse_statement([Token | Rest]) ->
     case is_function_call(Token) of
@@ -50,6 +52,11 @@ parse_for(["for", "(" | Rest]) ->
 
     {Body, Rest4} = parse_block(Rest3),            
     {node(for, "for", [Init, Cond, Incr, Body]), Rest4}.
+
+parse_while(["while", "(" | Rest]) ->
+    {Cond, [")" | Rest1]} = parse_expr(Rest),
+    {Body, Rest2} = parse_block(Rest1),
+    {node(while, "while", [Cond, Body]), Rest2}.
 
 parse_increment([Id, "++" | Rest]) ->
     {node(op, "++", [node(id, Id, [])]), Rest};
