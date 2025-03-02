@@ -8,9 +8,20 @@ parse(Tokens) ->
     AST.
 
 parse_statements([], Acc) -> {node(program, "root", lists:reverse(Acc)), []};
+
+parse_statements([";" | Rest], Acc) ->  
+    parse_statements(Rest, Acc);  % скип лишних ;
+
 parse_statements(Tokens, Acc) ->
     {Stmt, Rest} = parse_statement(Tokens),
     parse_statements(Rest, [Stmt | Acc]).
+
+parse_statements(["}" | Rest]) -> {[], ["}" | Rest]};
+parse_statements(Tokens) ->
+    {Stmt, Rest1} = parse_statement(Tokens),
+    {OtherStatements, Rest2} = parse_statements(Rest1),
+    {[Stmt | OtherStatements], Rest2}.
+
 
 parse_statement([Type, Id, "=" | Rest]) ->
     case is_type(Type) of
@@ -20,6 +31,8 @@ parse_statement([Type, Id, "=" | Rest]) ->
         false ->
             parse_assignment([Type, Id, "=" | Rest])
     end;
+parse_statement(["for" | Rest]) ->
+    parse_for(["for" | Rest]);
 
 parse_statement([Token | Rest]) ->
     case is_function_call(Token) of
@@ -29,6 +42,28 @@ parse_statement([Token | Rest]) ->
         false ->
             parse_assignment([Token | Rest])
     end.
+
+parse_for(["for", "(" | Rest]) ->
+    {Init, [";" | Rest1]} = parse_statement(Rest),  
+    {Cond, [";" | Rest2]} = parse_expr(Rest1),      
+   {Incr, [")" | Rest3]} = parse_increment(Rest2),
+
+    {Body, Rest4} = parse_block(Rest3),            
+    {node(for, "for", [Init, Cond, Incr, Body]), Rest4}.
+
+parse_increment([Id, "++" | Rest]) ->
+    {node(op, "++", [node(id, Id, [])]), Rest};
+parse_increment([Id, "--" | Rest]) ->
+    {node(op, "--", [node(id, Id, [])]), Rest};
+parse_increment(Tokens) ->
+    parse_expr(Tokens).
+
+parse_block(["{" | Rest]) ->  
+    {Statements, ["}" | RestAfterBlock]} = parse_statements(Rest),
+    {FilteredStatements, _} = lists:partition(fun(X) -> X =/= node(id, ";", []) end, Statements),
+    {node(block, "block", FilteredStatements), RestAfterBlock}.
+
+
 
 parse_assignment([Id, "=" | Rest]) when is_list(Id) ->
     {Expr, Rest1} = parse_expr(Rest),
@@ -46,6 +81,12 @@ parse_expr_tail(Left, ["+" | Rest]) ->
 parse_expr_tail(Left, ["-" | Rest]) ->
     {Right, Rest1} = parse_term(Rest),
     parse_expr_tail(node(op, "-", [Left, Right]), Rest1);
+parse_expr_tail(Left, [Op | Rest]) when Op == "<"; Op == ">"; Op == "<="; Op == ">="; Op == "=="; Op == "!=" ->
+    {Right, Rest1} = parse_term(Rest),
+    {node(op, Op, [Left, Right]), Rest1};
+parse_expr_tail(Left, ["++" | Rest]) ->
+    {node(op, "++", [Left]), Rest};
+
 parse_expr_tail(Node, Rest) -> {Node, Rest}.
 
 parse_term(Tokens) ->
@@ -193,11 +234,13 @@ tokenize([$" | Rest], Acc, true, StringAcc) ->
 tokenize([Char | Rest], Acc, true, StringAcc) -> 
     tokenize(Rest, Acc, true, [Char | StringAcc]); 
 
-%% обработка точки с запятой
-tokenize([$; | Rest], Acc, false, []) -> 
-    tokenize(Rest, Acc, false, []); 
-tokenize([$; | Rest], Acc, false, Current) -> 
-    tokenize(Rest, [lists:reverse(Current) | Acc], false, []);
+%% Обработка точки с запятой
+tokenize([$; | Rest], Acc, false, Current) ->
+    NewAcc = case Current of
+        [] -> [";" | Acc];
+        _  -> [";", lists:reverse(Current) | Acc]
+    end,
+    tokenize(Rest, NewAcc, false, []);
 
 %% обработка символов новой строки и возврата каретки
 tokenize([$\r | Rest], Acc, false, []) ->
@@ -231,7 +274,12 @@ tokenize([$) | Rest], Acc, false, Current) ->
         [] -> tokenize(Rest, [")" | Acc], false, []);
         _  -> tokenize(Rest, [")" | [lists:reverse(Current) | Acc]], false, [])
     end;
-
+tokenize([$+, $+ | Rest], Acc, false, Current) ->
+    NewAcc = case Current of
+        [] -> ["++" | Acc];
+        _ -> ["++", lists:reverse(Current) | Acc]
+    end,
+    tokenize(Rest, NewAcc, false, []);
 %% обработка обычных символов
 tokenize([Char | Rest], Acc, false, Current) -> 
     tokenize(Rest, Acc, false, [Char | Current]).

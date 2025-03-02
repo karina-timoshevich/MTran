@@ -4,6 +4,12 @@ bool boolVar = true;
 char charVar = 'A';
 string stringVar = "Hello world 1";
 var varVar = 100;
-COST = ( PRICE + TAX ) * 0.58
+int COST = ( PRICE + TAX ) * 0.58;
+int a = 5 + 9 * 1 + 3 - 7 * 2;
 Console.WriteLine("\nCycle for:");
 MyClass.DoSomething(123);
+for (int i = 0; i < 5; i++)
+{
+    Console.WriteLine("\nCycle for:");
+    var varVar = 100;
+}
