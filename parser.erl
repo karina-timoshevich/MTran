@@ -31,8 +31,11 @@ parse_statement([Type, Id, "=" | Rest]) ->
         false ->
             parse_assignment([Type, Id, "=" | Rest])
     end;
+
 parse_statement(["for" | Rest]) ->
     parse_for(["for" | Rest]);
+parse_statement(["do" | Rest]) ->
+    parse_dowhile(["do" | Rest]);
 parse_statement(["while" | Rest]) ->
     parse_while(["while" | Rest]);
 
@@ -53,10 +56,18 @@ parse_for(["for", "(" | Rest]) ->
     {Body, Rest4} = parse_block(Rest3),            
     {node(for, "for", [Init, Cond, Incr, Body]), Rest4}.
 
+parse_dowhile(["do" | Rest]) ->
+    {Body, ["while", "(" | Rest1]} = parse_block(Rest),
+    {Cond, [")" | Rest2]} = parse_expr(Rest1),
+    {node(dowhile, "do-while", [Body, Cond]), Rest2};
+parse_dowhile(_) ->
+    error(invalid_do_while_syntax).
 parse_while(["while", "(" | Rest]) ->
     {Cond, [")" | Rest1]} = parse_expr(Rest),
     {Body, Rest2} = parse_block(Rest1),
-    {node(while, "while", [Cond, Body]), Rest2}.
+    {node(while, "while", [Cond, Body]), Rest2};
+parse_while(_) ->
+    error(invalid_while_syntax).
 
 parse_increment([Id, "++" | Rest]) ->
     {node(op, "++", [node(id, Id, [])]), Rest};
@@ -208,6 +219,11 @@ print_tree({Type, Value, Children}, Indent) ->
 
 spaces(N) -> lists:duplicate(N, $ ).
 
+is_delimiter(Char) ->
+    not ((Char >= $a andalso Char =< $z) orelse 
+         (Char >= $A andalso Char =< $Z) orelse 
+         (Char >= $0 andalso Char =< $9) orelse 
+         Char == $_).
 parse_file(Filename) ->
     {ok, Binary} = file:read_file(Filename),
     Content = binary_to_list(Binary),
@@ -241,13 +257,35 @@ tokenize([$" | Rest], Acc, true, StringAcc) ->
 tokenize([Char | Rest], Acc, true, StringAcc) -> 
     tokenize(Rest, Acc, true, [Char | StringAcc]); 
 
-%% Обработка точки с запятой
 tokenize([$; | Rest], Acc, false, Current) ->
     NewAcc = case Current of
         [] -> [";" | Acc];
         _  -> [";", lists:reverse(Current) | Acc]
     end,
     tokenize(Rest, NewAcc, false, []);
+
+tokenize("do" ++ Rest, Acc, false, []) ->
+    case Rest of
+        [] -> 
+            tokenize(Rest, ["do" | Acc], false, []);
+        [NextChar | _] -> 
+            case is_delimiter(NextChar) of
+                true -> tokenize(Rest, ["do" | Acc], false, []);
+                false -> tokenize("o" ++ Rest, Acc, false, "d")
+            end
+    end;
+
+tokenize("while" ++ Rest, Acc, false, []) ->
+    case Rest of
+        [] -> 
+            tokenize(Rest, ["while" | Acc], false, []);
+        [NextChar | _] -> 
+            case is_delimiter(NextChar) of
+                true -> tokenize(Rest, ["while" | Acc], false, []);
+                false -> tokenize("hile" ++ Rest, Acc, false, "w")
+            end
+    end;
+
 
 %% обработка символов новой строки и возврата каретки
 tokenize([$\r | Rest], Acc, false, []) ->
