@@ -20,8 +20,15 @@ parse_statement([Type, Id, "=" | Rest]) ->
         false ->
             parse_assignment([Type, Id, "=" | Rest])
     end;
-parse_statement(Tokens) ->
-    parse_assignment(Tokens).
+
+parse_statement([Token | Rest]) ->
+    case is_function_call(Token) of
+        true ->
+            {Call, Rest1} = parse_function_call(Token, Rest),
+            {Call, Rest1};
+        false ->
+            parse_assignment([Token | Rest])
+    end.
 
 parse_assignment([Id, "=" | Rest]) when is_list(Id) ->
     {Expr, Rest1} = parse_expr(Rest),
@@ -57,6 +64,12 @@ parse_factor(["(" | Rest]) ->
     {Expr, [")" | Rest1]} = parse_expr(Rest),
     {Expr, Rest1};
 parse_factor([Token | Rest]) ->
+    case is_function_call(Token) of
+        true -> parse_function_call(Token, Rest);
+        false -> parse_simple_factor(Token, Rest)
+    end.
+
+parse_simple_factor(Token, Rest) ->
     case is_num(Token) of
         true -> {node(num, Token, []), Rest};
         false ->
@@ -73,6 +86,45 @@ parse_factor([Token | Rest]) ->
                     end
             end
     end.
+
+%% является ли токен вызовом функции или метода
+is_function_call(Token) ->
+    case string:find(Token, "(") of
+        nomatch -> false;
+        _ -> true
+    end.
+
+parse_function_call(Token, Rest) ->
+    [FunctionName, ArgsPart] = string:split(Token, "(", trailing),
+    {ParsedArgs, Rest1} = parse_args(ArgsPart ++ Rest), 
+    {node(call, FunctionName, ParsedArgs), Rest1}.
+
+%% парсинг аргументов функции
+parse_args(Args) ->
+    {ArgsList, [")" | Rest]} = lists:splitwith(fun(T) -> T /= ")" end, Args),
+    ParsedArgs = lists:map(fun parse_arg/1, ArgsList),
+    {ParsedArgs, Rest}.
+
+%% парсинг одного аргумента
+parse_arg(Arg) ->
+    ArgTrimmed = string:trim(Arg),
+    case is_num(ArgTrimmed) of
+        true -> node(num, ArgTrimmed, []);
+        false ->
+            case is_string(ArgTrimmed) of
+                true -> node(string, ArgTrimmed, []);
+                false ->
+                    case is_char(ArgTrimmed) of
+                        true -> node(char, ArgTrimmed, []);
+                        false ->
+                            case is_bool(ArgTrimmed) of
+                                true -> node(bool, ArgTrimmed, []);
+                                false -> node(id, ArgTrimmed, [])
+                            end
+                    end
+            end
+    end.
+
 
 is_bool(Token) ->
     lists:member(Token, ["true", "false"]).
@@ -129,20 +181,25 @@ tokenize([], Acc, true, StringAcc) ->
     io:format("Ошибка: Незакрытая строка: ~s~n", [lists:reverse(StringAcc)]),
     lists:reverse(Acc); 
 
+%% лбработка открывающей кавычки
 tokenize([$" | Rest], Acc, false, []) -> 
     tokenize(Rest, Acc, true, [$"]);
 
+%% обработка закрывающей кавычки
 tokenize([$" | Rest], Acc, true, StringAcc) -> 
     tokenize(Rest, [lists:reverse([$" | StringAcc]) | Acc], false, []); 
 
+%% обработка символов внутри строки
 tokenize([Char | Rest], Acc, true, StringAcc) -> 
     tokenize(Rest, Acc, true, [Char | StringAcc]); 
 
+%% обработка точки с запятой
 tokenize([$; | Rest], Acc, false, []) -> 
     tokenize(Rest, Acc, false, []); 
 tokenize([$; | Rest], Acc, false, Current) -> 
     tokenize(Rest, [lists:reverse(Current) | Acc], false, []);
 
+%% обработка символов новой строки и возврата каретки
 tokenize([$\r | Rest], Acc, false, []) ->
     tokenize(Rest, Acc, false, []);
 tokenize([$\r | Rest], Acc, false, Current) ->
@@ -151,11 +208,30 @@ tokenize([$\n | Rest], Acc, false, []) ->
     tokenize(Rest, Acc, false, []);
 tokenize([$\n | Rest], Acc, false, Current) ->
     tokenize(Rest, [lists:reverse(Current) | Acc], false, []);
+
+%% обработка пробелов и табуляции
 tokenize([Char | Rest], Acc, false, Current) when Char =:= 32; Char =:= 9 -> 
     case Current of
         [] -> tokenize(Rest, Acc, false, []);
         _  -> tokenize(Rest, [lists:reverse(Current) | Acc], false, [])
     end;
 
+%% обработка вызова функции/метода (имя с '(')
+tokenize([$( | Rest], Acc, false, Current) ->
+    case Current of
+        [] -> tokenize(Rest, ["(" | Acc], false, []);
+        _  -> 
+            FuncName = lists:reverse(Current),
+            tokenize(Rest, [FuncName ++ "(" | Acc], false, [])
+    end;
+
+%% обработка закрывающей скобки
+tokenize([$) | Rest], Acc, false, Current) ->
+    case Current of
+        [] -> tokenize(Rest, [")" | Acc], false, []);
+        _  -> tokenize(Rest, [")" | [lists:reverse(Current) | Acc]], false, [])
+    end;
+
+%% обработка обычных символов
 tokenize([Char | Rest], Acc, false, Current) -> 
     tokenize(Rest, Acc, false, [Char | Current]).
