@@ -24,3 +24,7 @@ do
     Console.WriteLine("Hi from do-while");
     k++;
 } while (k < 2);
+foreach (string fruit in list)
+{
+    Console.WriteLine("Hi from foreach");
+}

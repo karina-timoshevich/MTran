@@ -38,6 +38,8 @@ parse_statement(["do" | Rest]) ->
     parse_dowhile(["do" | Rest]);
 parse_statement(["while" | Rest]) ->
     parse_while(["while" | Rest]);
+parse_statement(["foreach" | Rest]) ->
+    parse_foreach(["foreach" | Rest]);
 
 parse_statement([Token | Rest]) ->
     case is_function_call(Token) of
@@ -68,6 +70,32 @@ parse_while(["while", "(" | Rest]) ->
     {node(while, "while", [Cond, Body]), Rest2};
 parse_while(_) ->
     error(invalid_while_syntax).
+%% Разбор конструкции foreach
+parse_foreach(["foreach", "(" | Rest]) ->
+    %% Разбираем объявление переменной в заголовке foreach,
+    %% ожидаем, что первое слово – тип, второе – имя переменной
+    {ForeachDecl, Rest1} = parse_foreach_declaration(Rest),
+    %% Затем ожидаем токен "in"
+    case Rest1 of
+        ["in" | Rest2] ->
+            %% Разбираем выражение коллекции до закрывающей скобки
+            {Collection, [")" | Rest3]} = parse_expr(Rest2),
+            %% Разбираем тело цикла как блок (должен быть заключён в фигурные скобки)
+            {Body, Rest4} = parse_block(Rest3),
+            {node(foreach, "foreach", [ForeachDecl, Collection, Body]), Rest4};
+        _ ->
+            error(invalid_foreach_syntax)
+    end;
+parse_foreach(_) ->
+    error(invalid_foreach_syntax).
+
+%% Разбор объявления переменной для foreach
+parse_foreach_declaration([Type, Id | Rest]) ->
+    case is_type(Type) of
+        true -> {node(decl, Type, [node(id, Id, [])]), Rest};
+        false -> error(invalid_type)
+    end.
+
 
 parse_increment([Id, "++" | Rest]) ->
     {node(op, "++", [node(id, Id, [])]), Rest};
@@ -286,6 +314,17 @@ tokenize("while" ++ Rest, Acc, false, []) ->
             end
     end;
 
+%% Обработка ключевого слова 'foreach'
+tokenize("foreach" ++ Rest, Acc, false, []) ->
+    case Rest of
+        [] -> 
+            tokenize(Rest, ["foreach" | Acc], false, []);
+        [NextChar | _] -> 
+            case is_delimiter(NextChar) of
+                true -> tokenize(Rest, ["foreach" | Acc], false, []);
+                false -> tokenize("oreach" ++ Rest, Acc, false, "f")
+            end
+    end;
 
 %% обработка символов новой строки и возврата каретки
 tokenize([$\r | Rest], Acc, false, []) ->
