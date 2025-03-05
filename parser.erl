@@ -40,6 +40,8 @@ parse_statement(["while" | Rest]) ->
     parse_while(["while" | Rest]);
 parse_statement(["foreach" | Rest]) ->
     parse_foreach(["foreach" | Rest]);
+parse_statement(["if" | Rest]) ->
+    parse_if(["if" | Rest]);
 
 parse_statement([Token | Rest]) ->
     case is_function_call(Token) of
@@ -53,7 +55,7 @@ parse_statement([Token | Rest]) ->
 parse_for(["for", "(" | Rest]) ->
     {Init, [";" | Rest1]} = parse_statement(Rest),  
     {Cond, [";" | Rest2]} = parse_expr(Rest1),      
-   {Incr, [")" | Rest3]} = parse_increment(Rest2),
+    {Incr, [")" | Rest3]} = parse_increment(Rest2),
 
     {Body, Rest4} = parse_block(Rest3),            
     {node(for, "for", [Init, Cond, Incr, Body]), Rest4}.
@@ -70,17 +72,12 @@ parse_while(["while", "(" | Rest]) ->
     {node(while, "while", [Cond, Body]), Rest2};
 parse_while(_) ->
     error(invalid_while_syntax).
-%% Разбор конструкции foreach
+
 parse_foreach(["foreach", "(" | Rest]) ->
-    %% Разбираем объявление переменной в заголовке foreach,
-    %% ожидаем, что первое слово – тип, второе – имя переменной
     {ForeachDecl, Rest1} = parse_foreach_declaration(Rest),
-    %% Затем ожидаем токен "in"
     case Rest1 of
         ["in" | Rest2] ->
-            %% Разбираем выражение коллекции до закрывающей скобки
             {Collection, [")" | Rest3]} = parse_expr(Rest2),
-            %% Разбираем тело цикла как блок (должен быть заключён в фигурные скобки)
             {Body, Rest4} = parse_block(Rest3),
             {node(foreach, "foreach", [ForeachDecl, Collection, Body]), Rest4};
         _ ->
@@ -89,12 +86,44 @@ parse_foreach(["foreach", "(" | Rest]) ->
 parse_foreach(_) ->
     error(invalid_foreach_syntax).
 
-%% Разбор объявления переменной для foreach
 parse_foreach_declaration([Type, Id | Rest]) ->
     case is_type(Type) of
         true -> {node(decl, Type, [node(id, Id, [])]), Rest};
         false -> error(invalid_type)
     end.
+
+parse_if(["if", "(" | Rest]) ->
+    {Cond, [")" | Rest1]} = parse_expr(Rest),
+    {IfBody, Rest2} = parse_block(Rest1),
+    case Rest2 of
+        ["else", "if", "(" | Rest3] ->  
+            {ElseIfCond, [")" | Rest4]} = parse_expr(Rest3),
+            {ElseIfBody, Rest5} = parse_block(Rest4),
+            {ElseBody, Rest6} = parse_if(["if", "(" | Rest5]),  
+            {node('if', "if", [
+                node(condition, "condition", [Cond]),
+                node(if_body, "if_body", [IfBody]),
+                node(else_if, "else_if", [
+                    node(condition, "condition", [ElseIfCond]),
+                    node(else_if_body, "else_if_body", [ElseIfBody]),
+                    ElseBody
+                ])
+            ]), Rest6};
+        ["else" | Rest3] ->  
+            {ElseBody, Rest4} = parse_block(Rest3),
+            {node('if', "if", [
+                node(condition, "condition", [Cond]),
+                node(if_body, "if_body", [IfBody]),
+                node(else_body, "else_body", [ElseBody])
+            ]), Rest4};
+        _ ->  
+            {node('if', "if", [
+                node(condition, "condition", [Cond]),
+                node(if_body, "if_body", [IfBody])
+            ]), Rest2}
+    end;
+parse_if(_) ->
+    error(invalid_if_syntax).
 
 
 parse_increment([Id, "++" | Rest]) ->
@@ -108,8 +137,6 @@ parse_block(["{" | Rest]) ->
     {Statements, ["}" | RestAfterBlock]} = parse_statements(Rest),
     {FilteredStatements, _} = lists:partition(fun(X) -> X =/= node(id, ";", []) end, Statements),
     {node(block, "block", FilteredStatements), RestAfterBlock}.
-
-
 
 parse_assignment([Id, "=" | Rest]) when is_list(Id) ->
     {Expr, Rest1} = parse_expr(Rest),
@@ -174,7 +201,6 @@ parse_simple_factor(Token, Rest) ->
             end
     end.
 
-%% является ли токен вызовом функции или метода
 is_function_call(Token) ->
     case string:find(Token, "(") of
         nomatch -> false;
@@ -228,7 +254,6 @@ is_string(Token) when is_list(Token), Token =/= [] ->
         _ -> false
     end;
 is_string(_) -> false.
-
 
 is_char(Token) when is_list(Token), length(Token) >= 3 ->
     case re:run(Token, "^'.'$", [{capture, all, list}]) of
@@ -314,7 +339,6 @@ tokenize("while" ++ Rest, Acc, false, []) ->
             end
     end;
 
-%% Обработка ключевого слова 'foreach'
 tokenize("foreach" ++ Rest, Acc, false, []) ->
     case Rest of
         [] -> 
@@ -323,6 +347,28 @@ tokenize("foreach" ++ Rest, Acc, false, []) ->
             case is_delimiter(NextChar) of
                 true -> tokenize(Rest, ["foreach" | Acc], false, []);
                 false -> tokenize("oreach" ++ Rest, Acc, false, "f")
+            end
+    end;
+
+tokenize("if" ++ Rest, Acc, false, []) ->
+    case Rest of
+        [] -> 
+            tokenize(Rest, ["if" | Acc], false, []);
+        [NextChar | _] -> 
+            case is_delimiter(NextChar) of
+                true -> tokenize(Rest, ["if" | Acc], false, []);
+                false -> tokenize("f" ++ Rest, Acc, false, "i")
+            end
+    end;
+
+tokenize("else" ++ Rest, Acc, false, []) ->
+    case Rest of
+        [] -> 
+            tokenize(Rest, ["else" | Acc], false, []);
+        [NextChar | _] -> 
+            case is_delimiter(NextChar) of
+                true -> tokenize(Rest, ["else" | Acc], false, []);
+                false -> tokenize("lse" ++ Rest, Acc, false, "e")
             end
     end;
 
@@ -364,6 +410,7 @@ tokenize([$+, $+ | Rest], Acc, false, Current) ->
         _ -> ["++", lists:reverse(Current) | Acc]
     end,
     tokenize(Rest, NewAcc, false, []);
+
 %% обработка обычных символов
 tokenize([Char | Rest], Acc, false, Current) -> 
     tokenize(Rest, Acc, false, [Char | Current]).

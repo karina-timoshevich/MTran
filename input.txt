@@ -28,3 +28,13 @@ foreach (string fruit in list)
 {
     Console.WriteLine("Hi from foreach");
 }
+
+if (num > 5)
+{
+    num = num + 9;
+    Console.WriteLine("num > 5");
+}
+else
+{
+    Console.WriteLine("num <= 5");
+}
