@@ -44,15 +44,36 @@ parse_statement(["if" | Rest]) ->
     parse_if(["if" | Rest]);
 parse_statement(["switch" | Rest]) ->
     parse_switch(["switch" | Rest]);
+parse_statement(["using" | Rest]) ->
+    {Namespace, Rest1} = parse_namespace(Rest),
+    {node(namespace, "", [Namespace]), Rest1};
+
+
 
 parse_statement([Token | Rest]) ->
-    case is_function_call(Token) of
-        true ->
-            {Call, Rest1} = parse_function_call(Token, Rest),
-            {Call, Rest1};
-        false ->
-            parse_assignment([Token | Rest])
+    case Token of
+        "using" ->
+            {Namespace, [";" | Rest1]} = parse_namespace(Rest),
+            {node(using, "using", [Namespace]), Rest1};
+        _ ->
+            case is_function_call(Token) of
+                true ->
+                    {Call, Rest1} = parse_function_call(Token, Rest),
+                    {Call, Rest1};
+                false ->
+                    parse_assignment([Token | Rest])
+            end
     end.
+
+parse_namespace(Tokens) ->
+    {Namespace, Rest} = parse_identifier(Tokens, []),
+    {Namespace, Rest}.
+
+
+parse_identifier([], Acc) -> {lists:reverse(Acc), []};
+parse_identifier([";" | Rest], Acc) -> {lists:reverse(Acc), Rest};
+parse_identifier([Token | Rest], Acc) ->
+    parse_identifier(Rest, [Token | Acc]).
 
 parse_for(["for", "(" | Rest]) ->
     {Init, [";" | Rest1]} = parse_statement(Rest),  
@@ -301,14 +322,15 @@ print_tree(Tree) ->
     print_tree(Tree, 0),
     ok.
 
+print_tree(Node, Indent) when is_list(Node) ->
+    io:format("~s~s~n", [spaces(Indent), Node]);
 print_tree({Type, Value, Children}, Indent) ->
-   FormattedValue =
-    case Value of
-        {string, S, []} -> S;  
-        _ -> Value
-    end,
-
-io:format("~s~s: ~s~n", [spaces(Indent), Type, FormattedValue]),
+    FormattedValue =
+        case Value of
+            {string, S, []} -> S;
+            _ -> Value
+        end,
+    io:format("~s~s: ~s~n", [spaces(Indent), Type, FormattedValue]),
     lists:foreach(fun(Child) -> print_tree(Child, Indent + 4) end, Children).
 
 
@@ -419,6 +441,17 @@ tokenize("else" ++ Rest, Acc, false, []) ->
 
 tokenize("default:" ++ Rest, Acc, false, []) ->
     tokenize(Rest, [":", "default" | Acc], false, []);
+
+tokenize("using" ++ Rest, Acc, false, []) ->
+    case Rest of
+        [] -> 
+            tokenize(Rest, ["using" | Acc], false, []);
+        [NextChar | _] -> 
+            case is_delimiter(NextChar) of
+                true -> tokenize(Rest, ["using" | Acc], false, []);
+                false -> tokenize("sing" ++ Rest, Acc, false, "u")
+            end
+    end;
 
 %% обработка символов новой строки и возврата каретки
 tokenize([$\r | Rest], Acc, false, []) ->

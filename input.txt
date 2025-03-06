@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+
 int intVar = 42;
 double doubleVar = 3.14;
 bool boolVar = true;
