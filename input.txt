@@ -38,3 +38,16 @@ else
 {
     Console.WriteLine("num <= 5");
 }
+string day = "Monday";
+switch (day)
+{
+    case "Monday":
+        Console.WriteLine("Monday");
+        break;
+    case "Tuesday":
+        Console.WriteLine("Tuesday");
+        break;
+    default:
+        Console.WriteLine("Undefined day");
+        break;
+}

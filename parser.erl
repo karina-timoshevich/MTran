@@ -42,6 +42,8 @@ parse_statement(["foreach" | Rest]) ->
     parse_foreach(["foreach" | Rest]);
 parse_statement(["if" | Rest]) ->
     parse_if(["if" | Rest]);
+parse_statement(["switch" | Rest]) ->
+    parse_switch(["switch" | Rest]);
 
 parse_statement([Token | Rest]) ->
     case is_function_call(Token) of
@@ -125,6 +127,36 @@ parse_if(["if", "(" | Rest]) ->
 parse_if(_) ->
     error(invalid_if_syntax).
 
+parse_switch(["switch", "(", Expr, ")", "{" | Rest]) ->
+    {Cases, Rest1} = parse_cases(Rest, []),
+    {node(switch, "switch", [node(expr, Expr, []), node(cases, "cases", Cases)]), Rest1};
+parse_switch(_) ->
+    error(invalid_switch_syntax).
+
+parse_cases(["}" | Rest], Acc) -> 
+    {lists:reverse(Acc), Rest};
+parse_cases(["case" | Rest], Acc) ->
+    {Value, [":" | Rest1]} = parse_expr(Rest),  %% Парсим выражение после case
+    {Body, Rest2} = parse_case_body(Rest1, []),
+    parse_cases(Rest2, [node('case', Value, Body) | Acc]);
+parse_cases(["default", ":" | Rest], Acc) ->
+    {Body, Rest1} = parse_case_body(Rest, []),
+    parse_cases(Rest1, [node(default, "default", Body) | Acc]);
+parse_cases(["default:" | Rest], Acc) ->  %% Обработка объединённого токена
+    {Body, Rest1} = parse_case_body(Rest, []),
+    parse_cases(Rest1, [node(default, "default", Body) | Acc]);
+parse_cases(_, _) ->
+    error(invalid_case_syntax).
+
+parse_case_body(["break", ";" | Rest], Acc) -> 
+    {lists:reverse(Acc), Rest};
+parse_case_body(["}" | _] = Rest, Acc) -> 
+    {lists:reverse(Acc), Rest};
+parse_case_body([";" | Rest], Acc) ->  % Пропускаем точку с запятой
+    parse_case_body(Rest, Acc);
+parse_case_body(Tokens, Acc) ->
+    {Stmt, Rest} = parse_statement(Tokens),
+    parse_case_body(Rest, [Stmt | Acc]).
 
 parse_increment([Id, "++" | Rest]) ->
     {node(op, "++", [node(id, Id, [])]), Rest};
@@ -267,7 +299,12 @@ print_tree(Tree) ->
     ok.
 
 print_tree({Type, Value, Children}, Indent) ->
-    io:format("~s~s: ~s~n", [spaces(Indent), Type, Value]),
+    case Value of
+        {_, Val, _} ->  % Если значение — это кортеж {Type, Value, Children}
+            io:format("~s~s: ~p~n", [spaces(Indent), Type, Val]);
+        _ ->  % Если значение — это строка или атом
+            io:format("~s~s: ~s~n", [spaces(Indent), Type, Value])
+    end,
     lists:foreach(fun(Child) -> print_tree(Child, Indent + 4) end, Children).
 
 spaces(N) -> lists:duplicate(N, $ ).
@@ -372,6 +409,10 @@ tokenize("else" ++ Rest, Acc, false, []) ->
             end
     end;
 
+%% Обработка default:
+tokenize("default:" ++ Rest, Acc, false, []) ->
+    tokenize(Rest, [":", "default" | Acc], false, []);
+
 %% обработка символов новой строки и возврата каретки
 tokenize([$\r | Rest], Acc, false, []) ->
     tokenize(Rest, Acc, false, []);
@@ -410,6 +451,18 @@ tokenize([$+, $+ | Rest], Acc, false, Current) ->
         _ -> ["++", lists:reverse(Current) | Acc]
     end,
     tokenize(Rest, NewAcc, false, []);
+
+
+%% Пример для switch
+    tokenize("switch" ++ Rest, Acc, false, []) ->
+        case Rest of
+            [] -> tokenize(Rest, ["switch" | Acc], false, []);
+            [NextChar | _] ->
+                case is_delimiter(NextChar) of
+                    true -> tokenize(Rest, ["switch" | Acc], false, []);
+                    false -> tokenize("witch" ++ Rest, Acc, false, "s")
+                end
+        end;
 
 %% обработка обычных символов
 tokenize([Char | Rest], Acc, false, Current) -> 
