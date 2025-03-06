@@ -136,13 +136,15 @@ parse_switch(_) ->
 parse_cases(["}" | Rest], Acc) -> 
     {lists:reverse(Acc), Rest};
 parse_cases(["case" | Rest], Acc) ->
-    {Value, [":" | Rest1]} = parse_expr(Rest),  %% Парсим выражение после case
+    {RawValue, [":" | Rest1]} = parse_expr(Rest),
     {Body, Rest2} = parse_case_body(Rest1, []),
-    parse_cases(Rest2, [node('case', Value, Body) | Acc]);
+    parse_cases(Rest2, [node('case', RawValue, Body) | Acc]);
+
+
 parse_cases(["default", ":" | Rest], Acc) ->
     {Body, Rest1} = parse_case_body(Rest, []),
     parse_cases(Rest1, [node(default, "default", Body) | Acc]);
-parse_cases(["default:" | Rest], Acc) ->  %% Обработка объединённого токена
+parse_cases(["default:" | Rest], Acc) -> 
     {Body, Rest1} = parse_case_body(Rest, []),
     parse_cases(Rest1, [node(default, "default", Body) | Acc]);
 parse_cases(_, _) ->
@@ -152,7 +154,7 @@ parse_case_body(["break", ";" | Rest], Acc) ->
     {lists:reverse(Acc), Rest};
 parse_case_body(["}" | _] = Rest, Acc) -> 
     {lists:reverse(Acc), Rest};
-parse_case_body([";" | Rest], Acc) ->  % Пропускаем точку с запятой
+parse_case_body([";" | Rest], Acc) ->  
     parse_case_body(Rest, Acc);
 parse_case_body(Tokens, Acc) ->
     {Stmt, Rest} = parse_statement(Tokens),
@@ -179,6 +181,7 @@ parse_assignment(Tokens) ->
 parse_expr(Tokens) ->
     {Term, Rest} = parse_term(Tokens),
     parse_expr_tail(Term, Rest).
+
 
 parse_expr_tail(Left, ["+" | Rest]) ->
     {Right, Rest1} = parse_term(Rest),
@@ -299,13 +302,15 @@ print_tree(Tree) ->
     ok.
 
 print_tree({Type, Value, Children}, Indent) ->
+   FormattedValue =
     case Value of
-        {_, Val, _} ->  % Если значение — это кортеж {Type, Value, Children}
-            io:format("~s~s: ~p~n", [spaces(Indent), Type, Val]);
-        _ ->  % Если значение — это строка или атом
-            io:format("~s~s: ~s~n", [spaces(Indent), Type, Value])
+        {string, S, []} -> S;  
+        _ -> Value
     end,
+
+io:format("~s~s: ~s~n", [spaces(Indent), Type, FormattedValue]),
     lists:foreach(fun(Child) -> print_tree(Child, Indent + 4) end, Children).
+
 
 spaces(N) -> lists:duplicate(N, $ ).
 
@@ -341,11 +346,14 @@ tokenize([$" | Rest], Acc, false, []) ->
 
 %% обработка закрывающей кавычки
 tokenize([$" | Rest], Acc, true, StringAcc) -> 
-    tokenize(Rest, [lists:reverse([$" | StringAcc]) | Acc], false, []); 
+    tokenize(Rest, [lists:reverse([$" | StringAcc]) | Acc], false, []);
 
-%% обработка символов внутри строки
+tokenize([$\\, $" | Rest], Acc, true, StringAcc) -> 
+    tokenize(Rest, Acc, true, [$" | StringAcc]); 
+
+%% обработка остальных символов внутри строки
 tokenize([Char | Rest], Acc, true, StringAcc) -> 
-    tokenize(Rest, Acc, true, [Char | StringAcc]); 
+    tokenize(Rest, Acc, true, [Char | StringAcc]);
 
 tokenize([$; | Rest], Acc, false, Current) ->
     NewAcc = case Current of
@@ -409,7 +417,6 @@ tokenize("else" ++ Rest, Acc, false, []) ->
             end
     end;
 
-%% Обработка default:
 tokenize("default:" ++ Rest, Acc, false, []) ->
     tokenize(Rest, [":", "default" | Acc], false, []);
 
@@ -452,8 +459,6 @@ tokenize([$+, $+ | Rest], Acc, false, Current) ->
     end,
     tokenize(Rest, NewAcc, false, []);
 
-
-%% Пример для switch
     tokenize("switch" ++ Rest, Acc, false, []) ->
         case Rest of
             [] -> tokenize(Rest, ["switch" | Acc], false, []);
