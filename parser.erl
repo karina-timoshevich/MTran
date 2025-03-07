@@ -2,7 +2,7 @@
 -export([parse/1, print_tree/1, parse_file/1]).
 
 node(Type, Value, Children) -> {Type, Value, Children}.
-
+%%  parser:parse_file("input.txt").
 parse(Tokens) ->
     {AST, []} = parse_statements(Tokens, []),
     AST.
