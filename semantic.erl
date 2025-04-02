@@ -173,16 +173,19 @@ check_expression({id, Id}, Context) ->
         {ok, Type} -> {ok, Type, Context};
         not_found -> {error, format_error("Use of undeclared variable: ~p", [Id])}
     end;
+
 check_expression({op, Op, Left, Right}, Context) ->
-    case {check_expression(Left, Context), check_expression(Right, Context)} of
-        {{ok, LeftType, _}, {ok, RightType, _}} ->
-            case check_operator(Op, LeftType, RightType) of
-                {ok, ResultType} -> {ok, ResultType, Context};
-                {error, Msg} -> {error, Msg}
-            end;
-        {{error, LeftMsg}, _} -> {error, format_error("Invalid left operand: ~s", [LeftMsg])};
-        {_, {error, RightMsg}} -> {error, format_error("Invalid right operand: ~s", [RightMsg])};
-        _ -> {error, "Invalid expression structure"}
+    case check_expression(Left, Context) of
+        {error, Msg} -> {error, Msg}; 
+        {ok, LeftType, Ctx1} ->
+            case check_expression(Right, Ctx1) of
+                {error, Msg} -> {error, Msg};
+                {ok, RightType, Ctx2} ->
+                    case check_operator(Op, LeftType, RightType) of
+                        {ok, Type} -> {ok, Type, Ctx2};
+                        {error, Msg} -> {error, Msg}
+                    end
+            end
     end;
 
 check_expression({op, Op, Args}, Context) when is_list(Args) ->
@@ -191,17 +194,20 @@ check_expression({op, Op, Args}, Context) when is_list(Args) ->
         _ -> {error, "Invalid operator structure"}
     end.
 
-%% Исправленные операторы
 check_operator('+', int, int) -> {ok, int};
 check_operator('+', double, double) -> {ok, double};
 check_operator('+', int, double) -> {ok, double};
 check_operator('+', double, int) -> {ok, double};
 
+check_operator('-', int, int) -> {ok, int};   
+check_operator('-', double, double) -> {ok, double};
+check_operator('-', int, double) -> {ok, double};    
+check_operator('-', double, int) -> {ok, double};    
+
 check_operator('*', int, int) -> {ok, int};
 check_operator('*', double, double) -> {ok, double};
 check_operator('*', int, double) -> {ok, double};
 check_operator('*', double, int) -> {ok, double};
-
 
 check_operator(_, _, _) -> {error, "Invalid operator types"}.
 
@@ -220,18 +226,15 @@ find_variable(_, []) ->
 is_convertible(From, To) ->
     case {From, To} of
         {int, int} -> true;
-        {int, double} -> true;  % Разрешить неявное преобразование int → double
+        {int, double} -> true; 
         {double, double} -> true;
         {string, string} -> true;
         {bool, bool} -> true;
         {char, char} -> true;
-        {var, _} -> true;       % var принимает любой тип
-        {_, var} -> true;       % любой тип можно присвоить var
+        {var, _} -> true;      
+        {_, var} -> true;     
         _ -> false
     end.
-
-
-
 
 format_error(Fmt, Args) ->
     lists:flatten(io_lib:format(Fmt, Args)).

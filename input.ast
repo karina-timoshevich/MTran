@@ -48,3 +48,17 @@ program: root
                     id: PRICE
                     id: TAX
                 num: 0.58
+    decl: int
+        assign: =
+            id: a
+            op: -
+                op: +
+                    op: +
+                        num: 5
+                        op: *
+                            id: PR
+                            num: 1
+                    num: 3
+                op: *
+                    num: 7
+                    num: 2
