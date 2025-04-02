@@ -11,4 +11,35 @@ program: root
         assign: =
             id: doubleVar
             num: 3.14
-
+    decl: bool
+        assign: =
+            id: boolVar
+            bool: true
+    decl: bool
+        assign: =
+            id: boolVar
+            num: 3.14
+    decl: string
+        assign: =
+            id: stringVar
+            string: "Hello world 1"
+    decl: char
+        assign: =
+            id: charVar
+            char: 'A'
+    decl: char
+        assign: =
+            id: charVar
+            bool: true
+    decl: var
+        assign: =
+            id: varVar
+            num: 100
+    decl: int
+        assign: =
+            id: COST
+            op: *
+                op: +
+                    id: PRICE
+                    id: TAX
+                num: 0.58

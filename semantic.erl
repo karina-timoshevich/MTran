@@ -54,23 +54,26 @@ parse_line(Line) ->
     [TypePart | ValueParts] = string:split(LineTrim, ":", leading),
     Type = list_to_atom(string:trim(TypePart)),
     Value = case ValueParts of
-    [] -> [];
-    [V] ->
-        VTrim = string:trim(V),
-        case Type of
-            num ->
-                {num, list_to_float(VTrim)};
-            string ->
-                Unquoted = string:trim(VTrim, both, "\""),
-                {string, Unquoted};
-            id ->
-                {id, list_to_atom(VTrim)};
-            _ ->
-                list_to_atom(VTrim)
-        end
-end,
-
+        [] -> [];
+        [V] ->
+            VTrim = string:trim(V),
+            case Type of
+                num -> 
+                    case catch list_to_float(VTrim) of
+                        {'EXIT', _} -> {error, "Invalid number"};
+                        Float -> {num, Float}
+                    end;
+                string -> {string, string:trim(VTrim, both, "\"")};
+                char -> {char, string:trim(VTrim, both, "'")};  
+                id -> {id, list_to_atom(VTrim)};
+                bool -> {bool, list_to_atom(VTrim)};
+                var -> {var, VTrim};  %% Просто сохраняем строковое представление
+                _ -> list_to_atom(VTrim)
+            end
+    end,
     {IndentLevel, {Type, Value}}.
+
+
 
 check_node({program, _, Nodes}, Context, Errors) ->
     check_children(Nodes, Context, Errors);
@@ -152,6 +155,19 @@ check_expression({num, _}, Context) ->
     {ok, number, Context};
 check_expression({string, _}, Context) ->
     {ok, string, Context};
+check_expression({bool, _}, Context) ->
+    {ok, bool, Context};
+check_expression({char, _}, Context) ->
+    {ok, char, Context};
+
+check_expression({var, Value}, Context) ->
+    %% "var" может быть любым, сначала определяем его тип по значению
+    case check_expression(Value, Context) of
+        {ok, Type, _} -> {ok, Type, Context};
+        {error, Msg} -> {error, Msg}
+    end;
+
+
 check_expression({id, Id}, Context) ->
     case find_variable(Id, Context) of
         {ok, Type} ->
@@ -192,8 +208,13 @@ is_convertible(From, To) ->
         {string, string} -> true;
         {number, number} -> true;
         {number, double} -> true;
+        {bool, bool} -> true;
+        {char, char} -> true;
+        {var, _} -> true;  %% var можно приравнивать к любому типу
+        {_, var} -> true;  %% и любой тип можно приравнивать к var
         _ -> false
     end.
+
 
 format_error(Fmt, Args) ->
     lists:flatten(io_lib:format(Fmt, Args)).
