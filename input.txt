@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-int intVar = 42;
+int intVar = "42";
 double doubleVar = 3.14;
 bool boolVar = true;
 char charVar = 'A';
@@ -9,6 +9,7 @@ string stringVar = "Hello world 1";
 var varVar = 100;
 int COST = ( PRICE + TAX ) * 0.58;
 int a = 5 + 9 * 1 + 3 - 7 * 2;
+int a = a + 1;
 Console.WriteLine("\nCycle for:");
 MyClass.DoSomething(123);
 for (int i = 0; i < 5; i++)

@@ -1,0 +1,9 @@
+program: root
+    decl: int
+        assign: =
+            id: intVar
+            string: "hhh"
+    decl: double
+        assign: =
+            id: doubleVar
+            num: 3.14
