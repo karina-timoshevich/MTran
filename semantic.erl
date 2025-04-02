@@ -1,10 +1,8 @@
 -module(semantic).
 -export([analyze/1, analyze_file/1]).
 
-%% Основной API
 analyze(Tree) ->
     InitialContext = [{'Scope', [], []}],
-    %% Если AST – это список узлов, то обходим его
     case check_children(Tree, InitialContext, []) of
         {ok, _, Errors} when Errors =/= [] ->
             {error, lists:reverse(Errors)};
@@ -14,8 +12,6 @@ analyze(Tree) ->
             {error, lists:reverse(Errors)}
     end.
 
-
-%% Анализ AST из файла
 analyze_file(Filename) ->
     case parse_file(Filename) of
         {ok, Tree} ->
@@ -24,24 +20,20 @@ analyze_file(Filename) ->
         {error, Reason} -> {error, Reason}
     end.
 
-%% Новый парсер на основе блоков (parse_block/2)
 parse_file(Filename) ->
     {ok, Data} = file:read_file(Filename),
     Lines = string:split(unicode:characters_to_list(Data), "\n", all),
     {Nodes, _Remaining} = parse_block(Lines, 0),
     {ok, Nodes}.
 
-%% parse_block/2: разбирает блок с заданным уровнем отступа
 parse_block([], _CurrentIndent) ->
     {[], []};
 parse_block([Line | Rest], CurrentIndent) ->
     {Indent, Node} = parse_line(Line),
     if
         Indent < CurrentIndent ->
-            %% Отступ уменьшился – текущий блок завершён
             {[], [Line | Rest]};
         Indent == CurrentIndent ->
-            %% Обрабатываем узел и его дочерние узлы
             {Children, Rem1} = parse_block(Rest, CurrentIndent + 1),
             Node1 = case Children of
                         [] -> Node;
@@ -50,17 +42,12 @@ parse_block([Line | Rest], CurrentIndent) ->
             {Siblings, Rem2} = parse_block(Rem1, CurrentIndent),
             {[Node1 | Siblings], Rem2};
         Indent > CurrentIndent ->
-            %% Такой случай не должен возникать, так как дочерние узлы обрабатываются рекурсивно
             {[], [Line | Rest]}
     end.
 
-%% Обёртка parse_lines_wrapper не нужна, если мы используем parse_block напрямую
-
-%% Функция формирования узла с детьми
 add_children({Type, Value}, Children) ->
     {Type, Value, Children}.
 
-%% Разбор отдельной строки
 parse_line(Line) ->
     LineTrim = string:trim(Line),
     IndentLevel = (string:length(Line) - string:length(LineTrim)) div 4,
@@ -79,14 +66,12 @@ parse_line(Line) ->
             id ->
                 {id, list_to_atom(VTrim)};
             _ ->
-                %% Преобразуем тип в атом
                 list_to_atom(VTrim)
         end
 end,
 
     {IndentLevel, {Type, Value}}.
 
-%% Семантический анализ (остальной код не меняется)
 check_node({program, _, Nodes}, Context, Errors) ->
     check_children(Nodes, Context, Errors);
 
@@ -153,13 +138,15 @@ check_assignment(Type, Id, Expr, Context, Errors) ->
                     UpdatedContext = add_variable(Id, Type, NewContext),
                     {ok, UpdatedContext, Errors};
                 false ->
-                    NewErrors = [format_error("Type mismatch: ~p cannot be assigned to ~p", [ExprType, Type]) | Errors],
-
+                    NewErrors = [format_error("Type mismatch: variable ~p declared as ~p cannot be assigned a value of type ~p", 
+                                               [Id, Type, ExprType])
+                                 | Errors],
                     {ok, NewContext, NewErrors}
             end;
         {error, Msg} ->
             {ok, Context, [Msg | Errors]}
     end.
+
 
 check_expression({num, _}, Context) ->
     {ok, number, Context};

@@ -1,9 +1,14 @@
 program: root
+    namespace:
+        System
+    namespace:
+        System.Collections.Generic
     decl: int
         assign: =
             id: intVar
-            string: "hhh"
+            string: "42"
     decl: double
         assign: =
             id: doubleVar
             num: 3.14
+
