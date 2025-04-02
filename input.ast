@@ -7,10 +7,6 @@ program: root
         assign: =
             id: intVar
             string: "42"
-    decl: double
-        assign: =
-            id: doubleVar
-            num: 3.14
     decl: bool
         assign: =
             id: boolVar
@@ -35,7 +31,16 @@ program: root
         assign: =
             id: varVar
             num: 100
-    decl: int
+
+    decl: double
+        assign: =
+            id: PRICE
+            num: 100
+    decl: double
+        assign: =
+            id: TAX
+            num: 100
+    decl: double
         assign: =
             id: COST
             op: *

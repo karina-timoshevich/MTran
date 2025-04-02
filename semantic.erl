@@ -58,22 +58,18 @@ parse_line(Line) ->
         [V] ->
             VTrim = string:trim(V),
             case Type of
-                num -> 
-                    case catch list_to_float(VTrim) of
-                        {'EXIT', _} -> {error, "Invalid number"};
-                        Float -> {num, Float}
+                num ->
+                    case string:chr(VTrim, $.) of
+                        0 -> {int, list_to_integer(VTrim)};
+                        _ -> {double, list_to_float(VTrim)}
                     end;
                 string -> {string, string:trim(VTrim, both, "\"")};
-                char -> {char, string:trim(VTrim, both, "'")};  
                 id -> {id, list_to_atom(VTrim)};
                 bool -> {bool, list_to_atom(VTrim)};
-                var -> {var, VTrim};  %% Просто сохраняем строковое представление
                 _ -> list_to_atom(VTrim)
             end
     end,
     {IndentLevel, {Type, Value}}.
-
-
 
 check_node({program, _, Nodes}, Context, Errors) ->
     check_children(Nodes, Context, Errors);
@@ -82,15 +78,16 @@ check_node({decl, Type, Children}, Context, Errors) ->
     case lists:keyfind(assign, 1, Children) of
         {assign, '=', AssignChildren} ->
             case AssignChildren of
-                [IdNode, ExprNode] ->
-                    {id, Id} = IdNode,
-                    check_assignment(Type, Id, ExprNode, Context, Errors);
+                [{id, Id}, ExprNode] ->
+                    NewContext = add_variable(Id, Type, Context),
+                    check_assignment(Type, Id, ExprNode, NewContext, Errors);
                 _ ->
                     {ok, Context, [format_error("Invalid assignment structure", []) | Errors]}
             end;
         _ ->
             {ok, Context, [format_error("Invalid declaration: ~s", [Type]) | Errors]}
     end;
+
 
 check_node({assign, '=', Children}, Context, Errors) ->
     case Children of
@@ -117,7 +114,8 @@ check_node({op, Op, Left, Right}, Context, Errors) ->
             end;
         _ -> {ok, Context, Errors}
     end;
-
+check_node({'', _, Nodes}, Context, Errors) ->
+    check_children(Nodes, Context, Errors);
 check_node(_, Context, Errors) ->
     {ok, Context, Errors}.
 
@@ -134,25 +132,28 @@ check_children([Node | Rest], Context, Errors) ->
 check_assignment(Type, Id, Expr, Context, Errors) ->
     case check_expression(Expr, Context) of
         {ok, ExprType, NewContext} ->
-            io:format("[DEBUG] Assigning ~p (~p) to ~p (~p)~n",
-                      [Id, ExprType, Id, Type]),
+            io:format("[DEBUG] Declaring ~p as ~p and assigning value of type ~p~n",
+                      [Id, Type, ExprType]),
             case is_convertible(ExprType, Type) of
                 true ->
                     UpdatedContext = add_variable(Id, Type, NewContext),
                     {ok, UpdatedContext, Errors};
                 false ->
                     NewErrors = [format_error("Type mismatch: variable ~p declared as ~p cannot be assigned a value of type ~p", 
-                                               [Id, Type, ExprType])
+                                              [Id, Type, ExprType])
                                  | Errors],
                     {ok, NewContext, NewErrors}
             end;
-        {error, Msg} ->
-            {ok, Context, [Msg | Errors]}
+        {error, Msg} -> {ok, Context, [Msg | Errors]}
     end.
 
 
-check_expression({num, _}, Context) ->
-    {ok, number, Context};
+
+check_expression({num, {int, _}}, Context) -> 
+    {ok, int, Context};
+check_expression({num, {double, _}}, Context) -> 
+    {ok, double, Context};
+
 check_expression({string, _}, Context) ->
     {ok, string, Context};
 check_expression({bool, _}, Context) ->
@@ -161,7 +162,6 @@ check_expression({char, _}, Context) ->
     {ok, char, Context};
 
 check_expression({var, Value}, Context) ->
-    %% "var" может быть любым, сначала определяем его тип по значению
     case check_expression(Value, Context) of
         {ok, Type, _} -> {ok, Type, Context};
         {error, Msg} -> {error, Msg}
@@ -170,27 +170,41 @@ check_expression({var, Value}, Context) ->
 
 check_expression({id, Id}, Context) ->
     case find_variable(Id, Context) of
-        {ok, Type} ->
-            {ok, Type, Context};
-        not_found ->
-            {error, format_error("Undefined variable: ~s", [Id])}
+        {ok, Type} -> {ok, Type, Context};
+        not_found -> {error, format_error("Use of undeclared variable: ~p", [Id])}
     end;
-check_expression({op, Op, L, R}, Context) ->
-    case {check_expression(L, Context), check_expression(R, Context)} of
-        {{ok, LT, _}, {ok, RT, _}} ->
-            case check_operator(Op, LT, RT) of
-                {ok, T} -> {ok, T, Context};
-                {error, _} -> {error, "Invalid operator types"}
+check_expression({op, Op, Left, Right}, Context) ->
+    case {check_expression(Left, Context), check_expression(Right, Context)} of
+        {{ok, LeftType, _}, {ok, RightType, _}} ->
+            case check_operator(Op, LeftType, RightType) of
+                {ok, ResultType} -> {ok, ResultType, Context};
+                {error, Msg} -> {error, Msg}
             end;
-        _ -> {error, "Invalid expression"}
+        {{error, LeftMsg}, _} -> {error, format_error("Invalid left operand: ~s", [LeftMsg])};
+        {_, {error, RightMsg}} -> {error, format_error("Invalid right operand: ~s", [RightMsg])};
+        _ -> {error, "Invalid expression structure"}
+    end;
+
+check_expression({op, Op, Args}, Context) when is_list(Args) ->
+    case Args of
+        [Left, Right] -> check_expression({op, Op, Left, Right}, Context);
+        _ -> {error, "Invalid operator structure"}
     end.
 
-check_operator('+', number, number) ->
-    {ok, number};
-check_operator('*', number, number) ->
-    {ok, number};
-check_operator(_, _, _) ->
-    {error, "Invalid operator"}.
+%% Исправленные операторы
+check_operator('+', int, int) -> {ok, int};
+check_operator('+', double, double) -> {ok, double};
+check_operator('+', int, double) -> {ok, double};
+check_operator('+', double, int) -> {ok, double};
+
+check_operator('*', int, int) -> {ok, int};
+check_operator('*', double, double) -> {ok, double};
+check_operator('*', int, double) -> {ok, double};
+check_operator('*', double, int) -> {ok, double};
+
+
+check_operator(_, _, _) -> {error, "Invalid operator types"}.
+
 
 add_variable(Id, Type, [{'Scope', Vars, C} | Rest]) ->
     [{'Scope', [{Id, Type} | Vars], C} | Rest].
@@ -205,15 +219,18 @@ find_variable(_, []) ->
 
 is_convertible(From, To) ->
     case {From, To} of
+        {int, int} -> true;
+        {int, double} -> true;  % Разрешить неявное преобразование int → double
+        {double, double} -> true;
         {string, string} -> true;
-        {number, number} -> true;
-        {number, double} -> true;
         {bool, bool} -> true;
         {char, char} -> true;
-        {var, _} -> true;  %% var можно приравнивать к любому типу
-        {_, var} -> true;  %% и любой тип можно приравнивать к var
+        {var, _} -> true;       % var принимает любой тип
+        {_, var} -> true;       % любой тип можно присвоить var
         _ -> false
     end.
+
+
 
 
 format_error(Fmt, Args) ->
