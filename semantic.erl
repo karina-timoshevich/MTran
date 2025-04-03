@@ -39,7 +39,7 @@ parse_block([Line | Rest], CurrentIndent) ->
                         [] -> Node;
                         _  -> add_children(Node, Children)
                     end,
-            {Siblings, Rem2} = parse_block(Rem1, CurrentIndent),
+            {Siblings, Rem2} = parse_block(Rem1, CurrentIndent), 
             {[Node1 | Siblings], Rem2};
         Indent > CurrentIndent ->
             {[], [Line | Rest]}
@@ -104,15 +104,17 @@ check_node({assign, '=', Children}, Context, Errors) ->
     end;
 
 check_node({op, Op, Left, Right}, Context, Errors) ->
-    case {check_expression(Left, Context), check_expression(Right, Context)} of
-        {{ok, LeftType, _}, {ok, RightType, _}} ->
-            case check_operator(Op, LeftType, RightType) of
-                {ok, _} -> {ok, Context, Errors};
-                {error, _} ->
-                    NewErrors = [format_error("Invalid operation: ~s ~s ~s", [LeftType, Op, RightType]) | Errors],
-                    {ok, Context, NewErrors}
-            end;
-        _ -> {ok, Context, Errors}
+    case check_expression(Left, Context) of
+        {error, Msg} -> {ok, Context, [Msg | Errors]};
+        {ok, LeftType, Ctx1} ->
+            case check_expression(Right, Ctx1) of 
+                {error, Msg} -> {ok, Context, [Msg | Errors]};
+                {ok, RightType, Ctx2} ->
+                    case check_operator(Op, Left, Right, LeftType, RightType, Ctx2) of
+                        {ok, _} -> {ok, Ctx2, Errors};
+                        {error, Msg} -> {ok, Ctx2, [Msg | Errors]}
+                    end
+            end
     end;
 check_node({'', _, Nodes}, Context, Errors) ->
     check_children(Nodes, Context, Errors);
@@ -132,21 +134,16 @@ check_children([Node | Rest], Context, Errors) ->
 check_assignment(Type, Id, Expr, Context, Errors) ->
     case check_expression(Expr, Context) of
         {ok, ExprType, NewContext} ->
-            io:format("[DEBUG] Declaring ~p as ~p and assigning value of type ~p~n",
-                      [Id, Type, ExprType]),
+            UpdatedContext = add_variable(Id, Type, NewContext),
+            io:format("[DEBUG] Declared ~p as ~p. Value type: ~p~n", [Id, Type, ExprType]),
             case is_convertible(ExprType, Type) of
-                true ->
-                    UpdatedContext = add_variable(Id, Type, NewContext),
-                    {ok, UpdatedContext, Errors};
+                true -> {ok, UpdatedContext, Errors};
                 false ->
-                    NewErrors = [format_error("Type mismatch: variable ~p declared as ~p cannot be assigned a value of type ~p", 
-                                              [Id, Type, ExprType])
-                                 | Errors],
-                    {ok, NewContext, NewErrors}
+                    Msg = format_error("Type mismatch: ~p (declared as ~p) got ~p", [Id, Type, ExprType]),
+                    {ok, UpdatedContext, [Msg | Errors]}
             end;
         {error, Msg} -> {ok, Context, [Msg | Errors]}
     end.
-
 
 
 check_expression({num, {int, _}}, Context) -> 
@@ -176,41 +173,99 @@ check_expression({id, Id}, Context) ->
 
 check_expression({op, Op, Left, Right}, Context) ->
     case check_expression(Left, Context) of
-        {error, Msg} -> {error, Msg}; 
+        {error, Msg} -> {error, Msg};
         {ok, LeftType, Ctx1} ->
             case check_expression(Right, Ctx1) of
                 {error, Msg} -> {error, Msg};
                 {ok, RightType, Ctx2} ->
-                    case check_operator(Op, LeftType, RightType) of
+                    case check_operator(Op, Left, Right, LeftType, RightType, Ctx2) of
                         {ok, Type} -> {ok, Type, Ctx2};
                         {error, Msg} -> {error, Msg}
                     end
             end
     end;
 
+
 check_expression({op, Op, Args}, Context) when is_list(Args) ->
     case Args of
         [Left, Right] -> check_expression({op, Op, Left, Right}, Context);
         _ -> {error, "Invalid operator structure"}
     end.
+check_operator('+', LeftNode, RightNode, LeftType, RightType, Context) ->
+    LeftStr = expression_to_string(LeftNode, Context), 
+    RightStr = expression_to_string(RightNode, Context),
+    case {LeftType, RightType} of
+        {int, int} -> {ok, int};
+        {double, double} -> {ok, double};
+        {int, double} -> {ok, double};
+        {double, int} -> {ok, double};
+        {string, string} -> {ok, string};
+        _ ->
+            {error, format_error("Invalid operation: ~s + ~s. Left: ~s, Right: ~s",
+                                [type_to_str(LeftType), type_to_str(RightType), LeftStr, RightStr])}
+    end;
 
-check_operator('+', int, int) -> {ok, int};
-check_operator('+', double, double) -> {ok, double};
-check_operator('+', int, double) -> {ok, double};
-check_operator('+', double, int) -> {ok, double};
+check_operator(Op, LeftNode, RightNode, LeftType, RightType, Context) ->
+    LeftStr = expression_to_string(LeftNode, Context),
+    RightStr = expression_to_string(RightNode, Context),
+    case Op of
+        '+' ->
+            case {LeftType, RightType} of
+                {int, int} -> {ok, int};
+                {double, double} -> {ok, double};
+                {int, double} -> {ok, double};
+                {double, int} -> {ok, double};
+                {string, string} -> {ok, string};
+                _ ->
+                 
+                    {error, format_error("Invalid operation: ~s + ~s. Left: ~s, Right: ~s",
+                                [type_to_str(LeftType), type_to_str(RightType), LeftStr, RightStr])}
+            end;
+        '-' ->
+            case {LeftType, RightType} of
+                {int, int} -> {ok, int};
+                {double, double} -> {ok, double};
+                {int, double} -> {ok, double};
+                {double, int} -> {ok, double};
+                _ ->
+                    {error, format_error("Invalid operation: ~s - ~s. Left operand: ~s, Right operand: ~s",
+                                        [type_to_str(LeftType), type_to_str(RightType), LeftStr, RightStr])}
+            end;
+        '*' ->
+            case {LeftType, RightType} of
+                {int, int} -> {ok, int};
+                {double, double} -> {ok, double};
+                {int, double} -> {ok, double};
+                {double, int} -> {ok, double};
+                {string, int} -> {ok, string};
+                {int, string} -> {ok, string};
+                _ ->
+                    {error, format_error("Invalid operation: ~s * ~s. Left operand: ~s, Right operand: ~s",
+                                        [type_to_str(LeftType), type_to_str(RightType), LeftStr, RightStr])}
+            end;
+        _ ->
+            {error, format_error("Unsupported operator: ~s", [Op])}
+    end.
 
-check_operator('-', int, int) -> {ok, int};   
-check_operator('-', double, double) -> {ok, double};
-check_operator('-', int, double) -> {ok, double};    
-check_operator('-', double, int) -> {ok, double};    
+type_to_str(T) ->
+    case T of
+        int -> "int";
+        double -> "double";
+        string -> "string";
+        bool -> "bool";
+        char -> "char";
+        var -> "var";
+        _ -> "unknown"
+    end.
 
-check_operator('*', int, int) -> {ok, int};
-check_operator('*', double, double) -> {ok, double};
-check_operator('*', int, double) -> {ok, double};
-check_operator('*', double, int) -> {ok, double};
-
-check_operator(_, _, _) -> {error, "Invalid operator types"}.
-
+expression_to_string({id, {id, Name}}, _Context) ->
+    atom_to_list(Name);
+expression_to_string({num, {int, N}}, _) -> integer_to_list(N);
+expression_to_string({num, {double, N}}, _) -> float_to_list(N);
+expression_to_string({string, {string, S}}, _) -> "\"" ++ S ++ "\"";
+expression_to_string({bool, {bool, B}}, _) -> atom_to_list(B);
+expression_to_string({char, {char, C}}, _) -> [C];
+expression_to_string(_, _) -> "unknown".
 
 add_variable(Id, Type, [{'Scope', Vars, C} | Rest]) ->
     [{'Scope', [{Id, Type} | Vars], C} | Rest].
@@ -220,8 +275,7 @@ find_variable(Id, [{'Scope', Vars, _} | Rest]) ->
         undefined -> find_variable(Id, Rest);
         Type -> {ok, Type}
     end;
-find_variable(_, []) ->
-    not_found.
+find_variable(_, []) -> not_found.
 
 is_convertible(From, To) ->
     case {From, To} of
