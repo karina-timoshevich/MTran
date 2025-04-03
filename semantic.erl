@@ -63,16 +63,53 @@ parse_line(Line) ->
                         0 -> {int, list_to_integer(VTrim)};
                         _ -> {double, list_to_float(VTrim)}
                     end;
-                string -> {string, string:trim(VTrim, both, "\"")};
-                id -> {id, list_to_atom(VTrim)};
-                bool -> {bool, list_to_atom(VTrim)};
+                string -> string:trim(VTrim, both, "\"");
+                id -> list_to_atom(VTrim); % Исправлено: сохраняем как атом
+                bool -> list_to_atom(VTrim);
                 _ -> list_to_atom(VTrim)
             end
     end,
-    {IndentLevel, {Type, Value}}.
+    {IndentLevel, {Type, Value}}. % Теперь для id: {id, intVar}
 
 check_node({program, _, Nodes}, Context, Errors) ->
     check_children(Nodes, Context, Errors);
+
+% Обработка узла класса
+check_node({class, _Name, Children}, Context, Errors) ->
+    check_children(Children, Context, Errors);
+
+% Обработка узла функции
+check_node({function, _ReturnType, _Name, Children}, Context, Errors) ->
+    % Создаем новую область видимости для функции
+    NewContext = [{'Scope', [], []} | Context],
+    case check_children(Children, NewContext, Errors) of
+        {ok, _, NewErrors} ->
+            % Возвращаем исходный контекст после обработки функции
+            {ok, Context, NewErrors};
+        {error, NewErrors} ->
+            {error, NewErrors}
+    end;
+
+% Обработка параметров функции
+check_node({param, Type, Id}, Context, Errors) ->
+    % Добавляем параметр в текущую область видимости
+    NewContext = add_variable(Id, Type, Context),
+    {ok, NewContext, Errors};
+
+% Обработка вызовов функций
+check_node({call, _FuncName, Args}, Context, Errors) ->
+    check_children(Args, Context, Errors);
+
+% Обработка интерполированных строк
+check_node({interpolated_string, _, Parts}, Context, Errors) ->
+    check_children(Parts, Context, Errors);
+
+% Обработка переменных в интерполированных строках
+check_node({variable, Id}, Context, Errors) ->
+    case find_variable(Id, Context) of
+        {ok, _Type} -> {ok, Context, Errors};
+        not_found -> {ok, Context, [format_error("Undefined variable: ~p", [Id]) | Errors]}
+    end;
 
 check_node({decl, Type, Children}, Context, Errors) ->
     case lists:keyfind(assign, 1, Children) of
@@ -268,7 +305,13 @@ expression_to_string({char, {char, C}}, _) -> [C];
 expression_to_string(_, _) -> "unknown".
 
 add_variable(Id, Type, [{'Scope', Vars, C} | Rest]) ->
-    [{'Scope', [{Id, Type} | Vars], C} | Rest].
+    NewVars = case proplists:is_defined(Id, Vars) of
+        true -> Vars;
+        false -> [{Id, Type} | Vars]
+    end,
+    [{'Scope', NewVars, C} | Rest];
+add_variable(Id, Type, []) ->
+    [{'Scope', [{Id, Type}], []}].
 
 find_variable(Id, [{'Scope', Vars, _} | Rest]) ->
     case proplists:get_value(Id, Vars) of
