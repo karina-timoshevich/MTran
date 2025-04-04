@@ -49,3 +49,11 @@ program: root
                     id: PRICE
                     id: TAX
                 num: 0.58
+    decl: double
+        assign: =
+            id: COST_2
+            op: *
+                op: +
+                    id: PRICE
+                    id: TAX_2
+                num: 0.58
