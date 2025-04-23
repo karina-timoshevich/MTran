@@ -1,0 +1,68 @@
+program: root
+    namespace:
+        System
+    namespace:
+        System.Collections.Generic
+    decl: int
+        assign: =
+            id: intVar
+            num: 14
+    decl: double
+        assign: =
+            id: doubleVar
+            num: 3.14
+    decl: bool
+        assign: =
+            id: boolVar
+            bool: true
+    decl: char
+        assign: =
+            id: charVar
+            char: 'A'
+    decl: string
+        assign: =
+            id: stringVar
+            string: "Hello world 1"
+    decl: var
+        assign: =
+            id: varVar
+            num: 100
+    decl: int
+        assign: =
+            id: PRICE
+            num: 101
+    decl: int
+        assign: =
+            id: TAX
+            num: 10
+    decl: int
+        assign: =
+            id: COST
+            op: *
+                op: +
+                    id: PRICE
+                    id: TAX
+                num: 0.58
+    decl: int
+        assign: =
+            id: a
+            op: -
+                op: +
+                    op: +
+                        num: 5
+                        op: *
+                            num: 9
+                            num: 1
+                    num: 3
+                op: *
+                    num: 7
+                    num: 2
+    decl: int
+        assign: =
+            id: a
+            op: +
+                id: a
+                num: 1
+    call: Console.WriteLine
+        string: "\nCycle for:"
+  

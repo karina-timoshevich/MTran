@@ -1,5 +1,6 @@
 -module(semantic).
--export([analyze/1, analyze_file/1]).
+-export([analyze/1, analyze_file/1, parse_file/1]).
+
 
 analyze(Tree) ->
     InitialContext = [{'Scope', [], []}],
@@ -138,17 +139,12 @@ check_assignment(Type, Id, Expr, Context, Errors) ->
             io:format("[DEBUG] Declared ~p as ~p. Value type: ~p~n", [Id, Type, ExprType]),
             case is_convertible(ExprType, Type) of
                 true -> {ok, UpdatedContext, Errors};
-
-
                 false ->
                     Msg = format_error("Type mismatch: ~p (declared as ~p) got ~p", [Id, Type, ExprType]),
                     {ok, UpdatedContext, [Msg | Errors]}
-
-
             end;
         {error, Msg} -> {ok, Context, [Msg | Errors]}
     end.
-
 
 
 check_expression({num, {int, _}}, Context) -> 
@@ -281,7 +277,6 @@ find_variable(Id, [{'Scope', Vars, _} | Rest]) ->
         Type -> {ok, Type}
     end;
 find_variable(_, []) -> not_found.
-
 
 is_convertible(From, To) ->
     case {From, To} of
