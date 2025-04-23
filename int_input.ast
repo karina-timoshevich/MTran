@@ -82,3 +82,22 @@ program: root
                 assign: =
                     id: varVar
                     num: 100
+    decl: int
+        assign: =
+            id: j
+            num: 0
+    while: while
+        op: <
+            id: j
+            num: 3
+        block: block
+            call: Console.WriteLine
+                string: "hello from cycle"
+            op: ++
+                id: j
+    decl: int
+        assign: =
+            id: j
+            op: +
+                id: j
+                num: 1
