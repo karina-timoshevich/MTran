@@ -101,3 +101,16 @@ program: root
             op: +
                 id: j
                 num: 1
+    decl: int
+        assign: =
+            id: k
+            num: 0
+    dowhile: do-while
+        block: block
+            call: Console.WriteLine
+                string: "Hi from do-while"
+            op: ++
+                id: k
+        op: <
+            id: k
+            num: 2

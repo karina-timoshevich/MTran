@@ -51,9 +51,10 @@ interpret_node({for, _Label, [Init, Cond, Inc, {block, _, Body}]}, Env) ->
     loop_for(Cond, Inc, Body, Env1);
 interpret_node({op, '++', [{id,{id,Id}}]}, Env) ->
     do_increment({op,'++', [{id,{id,Id}}]}, Env);
-
 interpret_node({while, _Label, [CondNode, {block, _, Body}]}, Env) ->
     loop_while(CondNode, Body, Env);
+interpret_node({dowhile, _Label, [ {block, _, Body}, CondNode ]}, Env) ->
+    loop_dowhile(Body, CondNode, Env);
 interpret_node(_, Env) ->
     Env.
 
@@ -76,6 +77,14 @@ loop_while(CondNode, Body, Env) ->
             loop_while(CondNode, Body, Env2);
         false ->
             Env1
+    end.
+
+loop_dowhile(Body, CondNode, Env) ->
+    Env1 = interpret_nodes(Body, Env),
+    {CondVal, Env2} = eval_expr_node(CondNode, Env1),
+    case CondVal of
+        true  -> loop_dowhile(Body, CondNode, Env2);
+        false -> Env2
     end.
 
 eval_expr_node({op, Op, L, R}, Env) ->
