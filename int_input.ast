@@ -65,4 +65,20 @@ program: root
                 num: 1
     call: Console.WriteLine
         string: "\nCycle for:"
-  
+    for: for
+        decl: int
+            assign: =
+                id: i
+                num: 0
+        op: <
+            id: i
+            num: 5
+        op: ++
+            id: i
+        block: block
+            call: Console.WriteLine
+                string: "\nCycle for:"
+            decl: var
+                assign: =
+                    id: varVar
+                    num: 100

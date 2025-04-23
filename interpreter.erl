@@ -46,8 +46,52 @@ interpret_node({call, 'Console.WriteLine', Children}, Env) when is_list(Children
     Out = lists:flatten(Values),
     io:format("[INFO] Вызов Console.WriteLine: ~s~n", [Out]),
     Env;
+%%  ————————————————
+%% 1) Обработка for-цикла
+%%  ————————————————
+interpret_node({for, _Label, [Init, Cond, Inc, {block, _, Body}]}, Env) ->
+    %% 1) Инициализация (interpret_node возвращает новое Env)
+    Env1 = interpret_node(Init, Env),
+    %% 2) Запустить тело в loop_for
+    loop_for(Cond, Inc, Body, Env1);
+
 interpret_node(_, Env) ->
     Env.
+
+%%  ————————————————
+%% 2) Рекурсивная функция, выполняющая тело и инкремент
+%%  ————————————————
+loop_for(CondNode, IncNode, Body, Env) ->
+    {CondVal, Env1} = eval_expr_node(CondNode, Env),
+    case CondVal of
+        true ->
+            %% выполнить всё внутри блока
+            Env2 = interpret_nodes(Body, Env1),
+            %% выполнить инкремент i++
+            Env3 = do_increment(IncNode, Env2),
+            %% и повторить
+            loop_for(CondNode, IncNode, Body, Env3);
+        false ->
+            %% когда условие ложно, вернуть текущее окружение
+            Env1
+    end.
+
+%%  ————————————————
+%% 3) Утилита для вычисления узлов в условии
+%%  ————————————————
+eval_expr_node({op, Op, L, R}, Env) ->
+    eval_expr({op, Op, L, R}, Env);
+eval_expr_node({op, Op, Args}, Env) when is_list(Args) ->
+    eval_expr({op, Op, Args}, Env);
+eval_expr_node(Node, Env) ->
+    eval_expr(Node, Env).
+
+%%  Обработка ++ (i++)
+do_increment({op, '++', [{id,{id,Id}}]}, Env) ->
+    Cur = maps:get(Id, Env),
+    maps:put(Id, Cur + 1, Env);
+do_increment(_, Env) ->
+     Env.
 
 eval_expr({num, {int, N}}, Env)      -> {N, Env};
 eval_expr({num, {double, N}}, Env)   -> {N, Env};
@@ -70,6 +114,30 @@ eval_expr({id, {id, Id}}, Env) ->
             {Val, Env}
     end;
 
+eval_expr({op, '<', L, R}, Env) ->
+    {LV, Env1} = eval_expr(L, Env),
+    {RV, Env2} = eval_expr(R, Env1),
+    {LV < RV, Env2};
+eval_expr({op, '>', L, R}, Env) ->
+    {LV, Env1} = eval_expr(L, Env),
+    {RV, Env2} = eval_expr(R, Env1),
+    {LV > RV, Env2};
+eval_expr({op, '<=', L, R}, Env) ->
+    {LV, Env1} = eval_expr(L, Env),
+    {RV, Env2} = eval_expr(R, Env1),
+    {LV =< RV, Env2};
+eval_expr({op, '>=', L, R}, Env) ->
+    {LV, Env1} = eval_expr(L, Env),
+    {RV, Env2} = eval_expr(R, Env1),
+    {LV >= RV, Env2};
+eval_expr({op, '==', L, R}, Env) ->
+    {LV, Env1} = eval_expr(L, Env),
+    {RV, Env2} = eval_expr(R, Env1),
+    {LV =:= RV, Env2};
+eval_expr({op, '!=', L, R}, Env) ->
+    {LV, Env1} = eval_expr(L, Env),
+    {RV, Env2} = eval_expr(R, Env1),
+    {LV =/= RV, Env2};
 eval_expr({op, '+', L, R}, Env) ->
     {LV, Env1} = eval_expr(L, Env),
     {RV, Env2} = eval_expr(R, Env1),
