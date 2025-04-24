@@ -26,6 +26,10 @@ interpret_node({decl, char, [{assign, '=', [{id, {id, Id}}, Expr]}]}, Env) ->
     {Value, Env1} = eval_expr(Expr, Env),
     io:format("[INFO] Объявлена переменная ~p со значением '~s'~n", [Id, Value]),
     maps:put(Id, Value, Env1);
+interpret_node({decl, string, [{assign, '=', [{id, {id, Id}}, Expr]}]}, Env) ->
+    {Value, Env1} = eval_expr(Expr, Env),
+    io:format("[INFO] Объявлена строковая переменная ~p со значением ~s~n", [Id, Value]),
+    maps:put(Id, Value, Env1);
 
 interpret_node({decl, _Type, [{assign, '=', [{id, {id, Id}}, Expr]}]}, Env) ->
     {Value, Env1} = eval_expr(Expr, Env),
@@ -68,14 +72,59 @@ interpret_node({Tag, _, Children}, Env) when Tag =:= 'if' ->
             io:format("[INFO] Условие if: ЛОЖЬ, выполняется else_body~n"),
             interpret_nodes(ElseBlock, Env1)
     end;
+interpret_node({switch, _, Ch}, Env) ->
+    RawExpr  = get_node_value(expr, Ch),
+    ExprAST  = case RawExpr of
+                   Atom when is_atom(Atom) -> {id,{id,Atom}};
+                   Other                    -> Other
+               end,
+    {Val, Env1} = eval_expr_node(ExprAST, Env),
+    Cases      = get_node_cases(cases, Ch),
+    do_switch(Val, Cases, Env1);
 interpret_node(_, Env) ->
     Env.
 
-get_node_value(Key, [{Key, _, [Val]} | _]) -> Val;
-get_node_value(Key, [_ | Rest]) -> get_node_value(Key, Rest).
+do_switch(_Val, [], Env) ->
+    Env;
+
+do_switch(Val, [{ 'case', KeyAST, Actions } | Rest], Env) ->
+    Key = case KeyAST of
+        {string,{string,S}} -> S;
+        Atom when is_atom(Atom) ->
+            string:trim(atom_to_list(Atom), both, "\"");
+        _ ->
+            io:format("[WARN] Нестандартный ключ case: ~p~n", [KeyAST]),
+            ""
+    end,
+    ValFixed =
+        case Val of
+            [Str] when is_list(Str) -> Str;
+            _ -> Val
+        end,
+    io:format("[DEBUG] Сравниваем Val=~p и Key=~p~n", [ValFixed, Key]),
+    if
+        ValFixed =:= Key ->
+            io:format("[INFO] Ветка switch выбрана: ~s~n", [Key]),
+            interpret_nodes(Actions, Env);
+        true ->
+            do_switch(Val, Rest, Env)
+    end;
+
+
+do_switch(_Val, [{default, _, Actions} | _], Env) ->
+    io:format("[INFO] Ветка switch: default~n", []),
+    interpret_nodes(Actions, Env).
+
+get_node_value(Key, [{Key, _, [V]}     | _]) -> V;
+get_node_value(Key, [{Key,      V}    | _]) -> V;
+get_node_value(Key, [_               | R]) -> get_node_value(Key, R).
 
 get_node_block(Key, [{Key, _, [{block, _, Block}]} | _]) -> Block;
 get_node_block(Key, [_ | Rest]) -> get_node_block(Key, Rest).
+
+
+get_node_cases(Key, [{Key, _, Cs} | _]) -> Cs;
+get_node_cases(Key, [_            | R]) -> get_node_cases(Key, R).
 
 loop_for(CondNode, IncNode, Body, Env) ->
     {CondVal, Env1} = eval_expr_node(CondNode, Env),
@@ -131,6 +180,8 @@ eval_expr({bool, {bool, B}}, Env) ->
 eval_expr({char, {char, C}}, Env)    -> normalize_char(C, Env);
 eval_expr({char, C}, Env)            -> normalize_char(C, Env);
 
+eval_expr({id, IdAtom}, Env) when is_atom(IdAtom) ->
+    eval_expr({id, {id, IdAtom}}, Env);
 eval_expr({id, {id, Id}}, Env) ->
     case maps:get(Id, Env, undefined) of
         undefined ->

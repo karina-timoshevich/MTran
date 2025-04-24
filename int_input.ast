@@ -136,3 +136,19 @@ program: root
             block: block
                 call: Console.WriteLine
                     string: "num <= 5"
+    decl: string
+        assign: =
+            id: day
+            string: "Monday"
+    switch: switch
+        expr: day
+        cases: cases
+            case: "Monday"
+                call: Console.WriteLine
+                    string: "Monday"
+            case: "Tuesday"
+                call: Console.WriteLine
+                    string: "Tuesday"
+            default: default
+                call: Console.WriteLine
+                    string: "Undefined day"
