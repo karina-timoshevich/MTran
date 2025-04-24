@@ -55,8 +55,27 @@ interpret_node({while, _Label, [CondNode, {block, _, Body}]}, Env) ->
     loop_while(CondNode, Body, Env);
 interpret_node({dowhile, _Label, [ {block, _, Body}, CondNode ]}, Env) ->
     loop_dowhile(Body, CondNode, Env);
+interpret_node({Tag, _, Children}, Env) when Tag =:= 'if' ->
+    Cond = get_node_value(condition, Children),
+    ThenBlock = get_node_block(if_body, Children),
+    ElseBlock = get_node_block(else_body, Children),
+    {CondVal, Env1} = eval_expr_node(Cond, Env),
+    case CondVal of
+        true ->
+            io:format("[INFO] Условие if: ИСТИНА, выполняется if_body~n"),
+            interpret_nodes(ThenBlock, Env1);
+        false ->
+            io:format("[INFO] Условие if: ЛОЖЬ, выполняется else_body~n"),
+            interpret_nodes(ElseBlock, Env1)
+    end;
 interpret_node(_, Env) ->
     Env.
+
+get_node_value(Key, [{Key, _, [Val]} | _]) -> Val;
+get_node_value(Key, [_ | Rest]) -> get_node_value(Key, Rest).
+
+get_node_block(Key, [{Key, _, [{block, _, Block}]} | _]) -> Block;
+get_node_block(Key, [_ | Rest]) -> get_node_block(Key, Rest).
 
 loop_for(CondNode, IncNode, Body, Env) ->
     {CondVal, Env1} = eval_expr_node(CondNode, Env),

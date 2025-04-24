@@ -114,3 +114,25 @@ program: root
         op: <
             id: k
             num: 2
+    decl: int
+        assign: =
+            id: num
+            num: 4
+    if: if
+        condition: condition
+            op: >
+                id: num
+                num: 5
+        if_body: if_body
+            block: block
+                assign: =
+                    id: num
+                    op: +
+                        id: num
+                        num: 9
+                call: Console.WriteLine
+                    string: "num > 5"
+        else_body: else_body
+            block: block
+                call: Console.WriteLine
+                    string: "num <= 5"
